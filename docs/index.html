@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FEMS 원격 모니터링 · 통합 관제 (데모)</title>
+    <style>
+      :root {
+        --navy: #1b2a4a;
+        --navy-2: #223a63;
+        --blue: #2f6fb3;
+        --blue-light: #3d8fd1;
+        --bg: #eef2f7;
+        --panel: #ffffff;
+        --line: #dde4ee;
+        --text: #1f2937;
+        --muted: #64748b;
+        --th-bg: #f3f6fa;
+        --track: #e7edf5;
+        --sev-warn: #2fa596;
+        --sev-caution: #d99400;
+        --sev-urgent: #e2453c;
+        --ok: #2bb37a;
+        --warn-bg: #e8f6f3;
+        --caution-bg: #fbf1d8;
+        --urgent-bg: #fbe6e5;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --navy: #0e1729;
+          --navy-2: #16233d;
+          --blue: #4a90d6;
+          --blue-light: #63a8e8;
+          --bg: #0b111d;
+          --panel: #151d2c;
+          --line: #26303f;
+          --text: #e6ecf4;
+          --muted: #93a1b5;
+          --th-bg: #1b2536;
+          --track: #202a3b;
+          --sev-warn: #3cc3b1;
+          --sev-caution: #f2b53d;
+          --sev-urgent: #f2645c;
+          --ok: #3ecb8c;
+          --warn-bg: #16302d;
+          --caution-bg: #322813;
+          --urgent-bg: #33191a;
+        }
+      }
+      :root[data-theme="light"] {
+        --navy: #1b2a4a; --navy-2: #223a63; --blue: #2f6fb3; --blue-light: #3d8fd1;
+        --bg: #eef2f7; --panel: #fff; --line: #dde4ee; --text: #1f2937; --muted: #64748b;
+        --th-bg: #f3f6fa; --track: #e7edf5;
+        --sev-warn: #2fa596; --sev-caution: #d99400; --sev-urgent: #e2453c; --ok: #2bb37a;
+        --warn-bg: #e8f6f3; --caution-bg: #fbf1d8; --urgent-bg: #fbe6e5;
+      }
+      :root[data-theme="dark"] {
+        --navy: #0e1729; --navy-2: #16233d; --blue: #4a90d6; --blue-light: #63a8e8;
+        --bg: #0b111d; --panel: #151d2c; --line: #26303f; --text: #e6ecf4; --muted: #93a1b5;
+        --th-bg: #1b2536; --track: #202a3b;
+        --sev-warn: #3cc3b1; --sev-caution: #f2b53d; --sev-urgent: #f2645c; --ok: #3ecb8c;
+        --warn-bg: #16302d; --caution-bg: #322813; --urgent-bg: #33191a;
+      }
+
+      * { box-sizing: border-box; }
+      html { color-scheme: light dark; }
+      body {
+        margin: 0; background: var(--bg); color: var(--text);
+        font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Segoe UI", Roboto, sans-serif;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .topbar {
+        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
+        background: linear-gradient(90deg, var(--navy), var(--navy-2));
+        color: #fff; padding: 12px 22px;
+      }
+      .brand { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+      .brand b { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
+      .brand b .h { color: var(--blue-light); }
+      .brand .sub { font-size: 13px; color: #c1cfe4; margin-left: 10px; }
+      .demo-tag { font-size: 11px; background: rgba(255,255,255,.16); color: #dce6f5;
+        padding: 3px 9px; border-radius: 20px; margin-left: 8px; white-space: nowrap; }
+      .topbar-right { display: flex; align-items: center; gap: 14px; }
+      .clock { font-size: 13px; color: #c9d6ea; }
+      .btn { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.25);
+        border-radius: 7px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
+      .btn:hover { background: rgba(255,255,255,.25); }
+      .btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+      .wrap { max-width: 1320px; margin: 0 auto; padding: 22px; }
+      .section-title { font-size: 15px; margin: 6px 2px 12px; color: var(--text); font-weight: 700; }
+      .section-title small { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 6px; }
+
+      .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 13px; margin-bottom: 24px; }
+      .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 15px 17px; }
+      .kpi .label { font-size: 12px; color: var(--muted); }
+      .kpi .value { font-size: 27px; font-weight: 800; margin-top: 5px; }
+      .kpi .value small { font-size: 13px; font-weight: 600; color: var(--muted); }
+      .kpi.u .value { color: var(--sev-urgent); }
+      .kpi.c .value { color: var(--sev-caution); }
+      .kpi.w .value { color: var(--sev-warn); }
+
+      .site-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 26px; }
+      .site-card { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; overflow: hidden; }
+      .site-card .head { background: linear-gradient(90deg, var(--blue), var(--blue-light));
+        color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+      .site-card .head h3 { margin: 0; font-size: 16px; }
+      .site-card .head .badge { font-size: 11px; background: rgba(255,255,255,.22); padding: 3px 9px; border-radius: 11px; }
+      .site-card .body { padding: 16px; }
+      .mrow { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 6px; }
+      .mrow .k { color: var(--muted); }
+      .mrow .v { font-weight: 700; }
+      .recept { position: relative; height: 20px; background: var(--track); border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
+      .recept .fill { position: absolute; inset: 0 auto 0 0; background: var(--blue); border-radius: 6px 0 0 6px; transition: width .5s ease; }
+      .recept .fill.c { background: var(--sev-caution); }
+      .recept .fill.u { background: var(--sev-urgent); }
+      .recept .target { position: absolute; top: 0; bottom: 0; right: 0; width: 5%;
+        border-left: 2px dashed var(--ok);
+        background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--ok) 22%, transparent) 0 4px, transparent 4px 8px); }
+      .scale { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
+      .chips { display: flex; gap: 6px; margin-top: 13px; }
+      .chip { flex: 1; text-align: center; font-size: 11px; padding: 8px 4px; border-radius: 7px; }
+      .chip .n { display: block; font-size: 17px; font-weight: 800; }
+      .chip.w { background: var(--warn-bg); color: var(--sev-warn); }
+      .chip.c { background: var(--caution-bg); color: var(--sev-caution); }
+      .chip.u { background: var(--urgent-bg); color: var(--sev-urgent); }
+
+      .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; }
+      .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+      .panel-head h2 { margin: 0; font-size: 15px; }
+      .muted { color: var(--muted); font-size: 12px; }
+      .filter button { border: 1px solid var(--line); background: transparent; color: var(--muted);
+        font-size: 12px; padding: 4px 11px; border-radius: 15px; cursor: pointer; margin-left: 4px; }
+      .filter button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+      .filter button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+
+      .alarms { max-height: 470px; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
+      .alarm { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 9px;
+        border-left: 4px solid var(--line); background: color-mix(in srgb, var(--panel) 90%, var(--bg)); }
+      .alarm.u { border-left-color: var(--sev-urgent); background: var(--urgent-bg); }
+      .alarm.c { border-left-color: var(--sev-caution); background: var(--caution-bg); }
+      .alarm.w { border-left-color: var(--sev-warn); background: var(--warn-bg); }
+      .tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 11px; color: #fff; white-space: nowrap; }
+      .tag.u { background: var(--sev-urgent); } .tag.c { background: var(--sev-caution); } .tag.w { background: var(--sev-warn); }
+      .a-body { flex: 1; min-width: 0; }
+      .a-msg { font-size: 13px; font-weight: 600; }
+      .a-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+      .a-act button { font-size: 11px; border: 1px solid var(--line); background: var(--panel); color: var(--text);
+        border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+      .empty { text-align: center; color: var(--muted); padding: 46px 0; font-size: 13px; }
+
+      .tscroll { max-height: 470px; overflow: auto; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th { position: sticky; top: 0; background: var(--th-bg); text-align: left; padding: 9px 12px; color: var(--muted); font-weight: 600; font-size: 12px; }
+      td { padding: 9px 12px; border-top: 1px solid var(--line); }
+      .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
+      .dot.on { background: var(--ok); } .dot.off { background: var(--sev-urgent); }
+      .pill { font-size: 11px; padding: 2px 8px; border-radius: 11px; }
+      .pill.ok { background: var(--warn-bg); color: var(--ok); }
+      .pill.u { background: var(--urgent-bg); color: var(--sev-urgent); }
+      .pill.c { background: var(--caution-bg); color: var(--sev-caution); }
+      .pill.w { background: var(--warn-bg); color: var(--sev-warn); }
+      .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 22px; line-height: 1.7; }
+      .foot code { background: var(--th-bg); padding: 2px 6px; border-radius: 4px; }
+      @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <b>YOU<span class="h">HOST</span></b>
+        <span class="sub">FEMS 원격 모니터링 · 수신율·정합성 기반 통합 관제</span>
+        <span class="demo-tag">데모 · 브라우저 내장 시뮬레이션</span>
+      </div>
+      <div class="topbar-right">
+        <span class="clock" id="clock"></span>
+        <button class="btn" id="themeBtn" type="button">◐ 테마</button>
+        <button class="btn" id="pauseBtn" type="button">⏸ 일시정지</button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <section class="summary" id="summary"></section>
+
+      <h2 class="section-title">사업장별 통합 현황 <small>K5 · K3 · K4 · 실시간 수신율·정합성·SLA</small></h2>
+      <section class="site-grid" id="siteGrid"></section>
+
+      <div class="two-col">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>실시간 알람</h2>
+            <div class="filter" id="filter">
+              <button data-s="" class="on" type="button">전체</button>
+              <button data-s="긴급" type="button">긴급</button>
+              <button data-s="주의" type="button">주의</button>
+              <button data-s="경고" type="button">경고</button>
+            </div>
+          </div>
+          <div class="alarms" id="alarms"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>계측 포인트 상태</h2>
+            <span class="muted" id="pcount"></span>
+          </div>
+          <div class="tscroll">
+            <table>
+              <thead><tr><th>포인트</th><th>사업장</th><th>유형</th><th>수신</th><th>최근값</th><th>상태</th></tr></thead>
+              <tbody id="ptbody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="foot">
+      이 페이지는 <b>브라우저 내장 시뮬레이션</b>으로 동작하는 미리보기입니다 — 설치·서버 없이 접속됩니다.<br />
+      실제 운영 시스템은 외부 소스 프로그램이 <code>POST /api/ingest</code> 로 계측값을 전송하고,
+      Node 백엔드가 동일한 로직으로 판정합니다. (소스: github.com/changbeomlee0816-png/FEMS)
+    </footer>
+
+    <script>
+      "use strict";
+      // ── 데모 설정 (제안서 12~13p 로직을 브라우저에서 시연. 임계값은 초 단위로 축소) ──
+      const RANK = { 경고: 1, 주의: 2, 긴급: 3 };
+      const SEV_C = { 긴급: "u", 주의: "c", 경고: "w" };
+      const CFG = {
+        tickMs: 2000,
+        staleSec: 8,            // 이 시간 이상 미수신이면 오프라인
+        stuckCount: 5,          // 동일값 N회 연속 → 정합성 이상
+        outRange: [[50,"긴급"],[20,"주의"],[0,"경고"]],
+        stuck: [[24,"긴급"],[12,"주의"],[5,"경고"]],
+        outage: [[24,"긴급"],[12,"주의"],[6,"경고"]],   // 미수신 초 → 심각도
+        zero:   [[24,"긴급"],[16,"주의"],[8,"경고"]],   // 유효전력 0 지속 초 → 심각도
+        peak:   [[20,"긴급"],[10,"주의"],[0,"경고"]],
+        siteRecept: [[80,"긴급"],[90,"주의"],[95,"경고"]],
+      };
+      const POINTS = [
+        { key:"K5-PWR-001", site:"K5", name:"K5 메인 수전", type:"power", unit:"kW", max:1200, peak:1000 },
+        { key:"K5-PWR-002", site:"K5", name:"K5 생산라인A", type:"power", unit:"kW", max:800, peak:700 },
+        { key:"K5-FLW-001", site:"K5", name:"K5 냉각수 유량", type:"flow", unit:"m³/h", max:500 },
+        { key:"K3-PWR-001", site:"K3", name:"K3 메인 수전", type:"power", unit:"kW", max:1000, peak:850 },
+        { key:"K3-PWR-002", site:"K3", name:"K3 유틸리티동", type:"power", unit:"kW", max:600 },
+        { key:"K4-PWR-001", site:"K4", name:"K4 메인 수전", type:"power", unit:"kW", max:900, peak:800 },
+        { key:"K4-FLW-001", site:"K4", name:"K4 압축공기 유량", type:"flow", unit:"m³/h", max:300 },
+        { key:"K5-PWR-OFF", site:"K5", name:"K5 설비 정지(가동중단)", type:"power", unit:"kW", peak:500, mode:"zero" },
+        { key:"K3-PWR-STK", site:"K3", name:"K3 통신불량(동일값)", type:"power", unit:"kW", max:700, mode:"stuck" },
+        { key:"K4-PWR-DEAD", site:"K4", name:"K4 미수신(전원차단)", type:"power", unit:"kW", mode:"dead" },
+      ];
+      const SITES = [ {id:"K5",name:"K5 사업장"}, {id:"K3",name:"K3 사업장"}, {id:"K4",name:"K4 사업장"} ];
+
+      const now = () => Date.now();
+      const rnd = (a,b) => a + Math.random()*(b-a);
+      const pick = (val, rules, cmp) => { for (const [t,s] of rules) if (cmp(val,t)) return s; return null; };
+      const round1 = n => Math.round(n*10)/10;
+
+      // 포인트 런타임 상태
+      const st = {};
+      for (const p of POINTS) st[p.key] = { last:null, ts:0, zeroSince:0, stuckN:0, history:[] };
+
+      const alarms = new Map();   // dedup_key -> alarm
+      const acked = new Set();
+
+      function tick() {
+        const t = now();
+        for (const p of POINTS) {
+          const s = st[p.key];
+          if (p.mode === "dead") continue;              // 데이터 미전송
+          let v, eff;
+          if (p.mode === "zero") { v = 0; eff = 0; }
+          else if (p.mode === "stuck") { v = 512; eff = 512; }
+          else if (p.type === "power") {
+            const base = (p.max||500)*0.7;
+            const spike = (p.key==="K5-PWR-001" && Math.random()<0.16) ? 1.45 : 1;
+            v = round1(rnd(base*0.85, base*1.05)*spike); eff = v;
+          } else { v = round1(rnd((p.max||300)*0.5,(p.max||300)*0.8)); eff = null; }
+          if (s.last === v) s.stuckN++; else s.stuckN = 1;
+          if (p.type === "power") { if (eff === 0) { if (!s.zeroSince) s.zeroSince = t; } else s.zeroSince = 0; }
+          s.last = v; s.eff = eff; s.ts = t;
+          s.history.push(v); if (s.history.length > 40) s.history.shift();
+        }
+        evaluate(t);
+        render();
+      }
+
+      function evaluate(t) {
+        const seen = new Set();
+        const raise = (o) => {
+          seen.add(o.key);
+          const prev = alarms.get(o.key);
+          o.firstTs = prev ? prev.firstTs : t;
+          o.lastTs = t;
+          o.status = acked.has(o.key) ? "ack" : "active";
+          alarms.set(o.key, o);
+        };
+
+        for (const p of POINTS) {
+          const s = st[p.key];
+          const online = s.ts && (t - s.ts)/1000 <= CFG.staleSec;
+          // 1) 수신율 — 개별 미수신
+          if (!online) {
+            const secs = s.ts ? (t - s.ts)/1000 : 999;
+            const sev = pick(secs, CFG.outage, (a,b)=>a>b);
+            if (sev) raise({ key:`rc:${p.key}`, site:p.site, cat:"수신율", sev, code:"POINT_OUTAGE",
+              cause:"계측기 통신 끊김 / 판넬 전원 차단 의심",
+              msg:`[${p.name}] 데이터 미수신 ${s.ts?Math.round(secs)+"초 경과":"이력 없음"}` });
+          }
+          if (!s.ts) continue;
+          // 2) 정합성 — 동일값 지속
+          if (s.stuckN >= CFG.stuckCount) {
+            const sev = pick(s.stuckN, CFG.stuck, (a,b)=>a>b);
+            if (sev) raise({ key:`stk:${p.key}`, site:p.site, cat:"정합성", sev, code:"STUCK_VALUE",
+              cause:"동일 값 지속 → 데이터 집계 오류/통신 끊김 의심",
+              msg:`[${p.name}] 동일 값(${s.last}) ${s.stuckN}회 연속 수신` });
+          }
+          // 2) 정합성 — 정상범위 초과
+          if (p.max != null && s.last > p.max) {
+            const over = (s.last - p.max)/p.max*100;
+            const sev = pick(over, CFG.outRange, (a,b)=>a>b);
+            if (sev) raise({ key:`rng:${p.key}`, site:p.site, cat:"정합성", sev, code:"OUT_OF_RANGE",
+              cause:"정상 범위 초과 이상치 (센서/결선 이상 의심)",
+              msg:`[${p.name}] 이상치 ${s.last}${p.unit} (정상 ~${p.max})` });
+          }
+          // 3) 전력 피크 / 유효전력 Zero
+          if (p.type === "power") {
+            if (s.zeroSince) {
+              const zs = (t - s.zeroSince)/1000;
+              const sev = pick(zs, CFG.zero, (a,b)=>a>b);
+              if (sev) raise({ key:`zero:${p.key}`, site:p.site, cat:"설비가동", sev, code:"ZERO_POWER",
+                cause:"유효전력 0 지속 → 설비 미가동 / 판넬 전원 차단 / 계측기 불량",
+                msg:`[${p.name}] 유효전력 Zero ${Math.round(zs)}초 지속` });
+            }
+            if (p.peak != null && s.last > p.peak) {
+              const over = (s.last - p.peak)/p.peak*100;
+              const sev = pick(over, CFG.peak, (a,b)=>a>b);
+              if (sev) raise({ key:`peak:${p.key}`, site:p.site, cat:"전력피크", sev, code:"POWER_PEAK",
+                cause:"부하시간대별 전력 피크 초과",
+                msg:`[${p.name}] 전력 피크 ${s.last}${p.unit} (임계 ${p.peak})` });
+            }
+          }
+        }
+        // 사업장 수신율 저하
+        const m = siteMetrics();
+        for (const x of m) {
+          const sev = pick(x.recept, CFG.siteRecept, (a,b)=>a<b);
+          if (sev) raise({ key:`site:${x.id}`, site:x.id, cat:"수신율", sev, code:"SITE_RECEPTION_LOW",
+            cause:"사업장 수신율 관리 목표(95%) 미달",
+            msg:`[${x.name}] 수신율 ${x.recept}% (정상 ${x.online}/${x.total})` });
+        }
+        // 자동 해제
+        for (const k of [...alarms.keys()]) if (!seen.has(k)) { alarms.delete(k); acked.delete(k); }
+      }
+
+      function siteMetrics() {
+        const t = now();
+        return SITES.map(site => {
+          const pts = POINTS.filter(p => p.site === site.id);
+          let online = 0, integ = 0;
+          for (const p of pts) {
+            const s = st[p.key];
+            const on = s.ts && (t - s.ts)/1000 <= CFG.staleSec;
+            if (on) online++;
+            const bad = alarms.has(`stk:${p.key}`) || alarms.has(`rng:${p.key}`);
+            if (!bad) integ++;
+          }
+          const recept = pts.length ? round1(online/pts.length*100) : 100;
+          const integrity = pts.length ? round1(integ/pts.length*100) : 100;
+          const sla = round1(recept*0.6 + integrity*0.4);
+          const cnt = { 경고:0, 주의:0, 긴급:0 };
+          for (const a of alarms.values()) if (a.site === site.id) cnt[a.sev]++;
+          return { id:site.id, name:site.name, total:pts.length, online, recept, integrity, sla, cnt };
+        });
+      }
+
+      // ── 렌더링 ──
+      let filter = "";
+      const $ = s => document.querySelector(s);
+      const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+      function render() {
+        const metrics = siteMetrics();
+        const total = metrics.reduce((a,m)=>a+m.total,0);
+        const online = metrics.reduce((a,m)=>a+m.online,0);
+        const cnt = { 경고:0, 주의:0, 긴급:0 };
+        for (const a of alarms.values()) cnt[a.sev]++;
+        const recept = total ? round1(online/total*100) : 100;
+        const rc = recept>=95 ? "" : recept>=90 ? "c" : "u";
+
+        $("#summary").innerHTML = `
+          <div class="kpi"><div class="label">모니터링 사업장</div><div class="value">${metrics.length}<small> 개소</small></div></div>
+          <div class="kpi"><div class="label">전체 계측 포인트</div><div class="value">${total}<small> 개</small></div></div>
+          <div class="kpi ${rc}"><div class="label">전체 수신율 (목표 95%)</div><div class="value">${recept}<small>%</small></div></div>
+          <div class="kpi"><div class="label">정상 수신</div><div class="value">${online}<small> / ${total}</small></div></div>
+          <div class="kpi u"><div class="label">긴급 알람</div><div class="value">${cnt.긴급}</div></div>
+          <div class="kpi c"><div class="label">주의 알람</div><div class="value">${cnt.주의}</div></div>
+          <div class="kpi w"><div class="label">경고 알람</div><div class="value">${cnt.경고}</div></div>`;
+
+        $("#siteGrid").innerHTML = metrics.map(m => {
+          const cls = m.recept>=95 ? "" : m.recept>=90 ? "c" : "u";
+          return `<div class="site-card">
+            <div class="head"><h3>${m.name}</h3><span class="badge">${m.total} 포인트</span></div>
+            <div class="body">
+              <div class="mrow"><span class="k">수신율</span><span class="v">${m.recept}% <span class="muted">(${m.online}/${m.total})</span></span></div>
+              <div class="recept"><div class="fill ${cls}" style="width:${Math.max(0,Math.min(100,m.recept))}%"></div><div class="target" title="관리 목표 95~100%"></div></div>
+              <div class="scale"><span>0%</span><span>95~100%</span></div>
+              <div class="mrow" style="margin-top:12px"><span class="k">데이터 정합성</span><span class="v">${m.integrity}%</span></div>
+              <div class="mrow"><span class="k">SLA 준수율</span><span class="v" style="color:${m.sla>=95?"var(--ok)":"var(--sev-urgent)"}">${m.sla}%</span></div>
+              <div class="chips">
+                <div class="chip w"><span class="n">${m.cnt.경고}</span>경고</div>
+                <div class="chip c"><span class="n">${m.cnt.주의}</span>주의</div>
+                <div class="chip u"><span class="n">${m.cnt.긴급}</span>긴급</div>
+              </div>
+            </div></div>`;
+        }).join("");
+
+        const list = [...alarms.values()].filter(a => !filter || a.sev === filter)
+          .sort((a,b) => RANK[b.sev]-RANK[a.sev] || b.lastTs-a.lastTs);
+        $("#alarms").innerHTML = list.length ? list.map(a => {
+          const c = SEV_C[a.sev];
+          return `<div class="alarm ${c}">
+            <span class="tag ${c}">${a.sev}</span>
+            <div class="a-body"><div class="a-msg">${esc(a.msg)}</div>
+              <div class="a-meta">${a.site} · ${a.cat} · ${esc(a.cause)} · 상태 ${a.status}</div></div>
+            <div class="a-act">${a.status==="active"?`<button type="button" onclick="ackAlarm('${a.key}')">접수</button>`:`<span class="muted">접수됨</span>`}</div>
+          </div>`;
+        }).join("") : `<div class="empty">활성 알람이 없습니다. ✓</div>`;
+
+        const t = now();
+        $("#pcount").textContent = `${POINTS.length} 포인트`;
+        $("#ptbody").innerHTML = POINTS.map(p => {
+          const s = st[p.key];
+          const on = s.ts && (t - s.ts)/1000 <= CFG.staleSec;
+          let worst = null;
+          for (const a of alarms.values()) if (a.msg.includes(p.name) && (!worst || RANK[a.sev]>RANK[worst])) worst = a.sev;
+          let pill = `<span class="pill ok">정상</span>`;
+          if (!on) pill = `<span class="pill u">미수신</span>`;
+          else if (worst) pill = `<span class="pill ${SEV_C[worst]}">${worst}</span>`;
+          const val = s.last!=null && s.ts ? `${s.last}${p.unit||""}` : "-";
+          return `<tr>
+            <td>${esc(p.name)}<div class="muted">${p.key}</div></td>
+            <td>${p.site}</td><td>${p.type==="power"?"전력":"유량"}</td>
+            <td><span class="dot ${on?"on":"off"}"></span>${on?"수신":"끊김"}</td>
+            <td>${val}</td><td>${pill}</td></tr>`;
+        }).join("");
+      }
+
+      window.ackAlarm = (k) => { acked.add(k); const a = alarms.get(k); if (a) a.status = "ack"; render(); };
+
+      // ── 컨트롤 ──
+      $("#filter").addEventListener("click", e => {
+        const b = e.target.closest("button"); if (!b) return;
+        filter = b.dataset.s;
+        [...$("#filter").children].forEach(x => x.classList.toggle("on", x === b));
+        render();
+      });
+      let paused = false, timer = null;
+      $("#pauseBtn").addEventListener("click", () => {
+        paused = !paused;
+        $("#pauseBtn").textContent = paused ? "▶ 재개" : "⏸ 일시정지";
+        if (paused) clearInterval(timer); else timer = setInterval(tick, CFG.tickMs);
+      });
+      $("#themeBtn").addEventListener("click", () => {
+        const cur = document.documentElement.getAttribute("data-theme");
+        const sysDark = matchMedia("(prefers-color-scheme: dark)").matches;
+        const next = cur ? (cur === "dark" ? "light" : "dark") : (sysDark ? "light" : "dark");
+        document.documentElement.setAttribute("data-theme", next);
+      });
+      setInterval(() => { $("#clock").textContent = new Date().toLocaleString("ko-KR", { hour12:false }); }, 1000);
+      $("#clock").textContent = new Date().toLocaleString("ko-KR", { hour12:false });
+
+      // 초기 몇 틱 미리 채워 자연스러운 시작
+      for (let i=0;i<3;i++) tick();
+      timer = setInterval(tick, CFG.tickMs);
+    </script>
+  </body>
+</html>
