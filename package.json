@@ -1,0 +1,27 @@
+{
+  "name": "fems-remote-monitoring",
+  "version": "1.0.0",
+  "description": "FEMS 원격 모니터링 시스템 - 수신율·정합성 중심 통합 관제 (SLA)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "simulate": "node server/simulator.js",
+    "seed": "node server/simulator.js --seed"
+  },
+  "repository": {
+    "type": "git",
+    "url": "http://local_proxy@127.0.0.1:41729/git/changbeomlee0816-png/suso-youth-app"
+  },
+  "keywords": [
+    "FEMS",
+    "monitoring",
+    "SLA",
+    "energy"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "better-sqlite3": "^12.11.1",
+    "express": "^5.2.1"
+  }
+}

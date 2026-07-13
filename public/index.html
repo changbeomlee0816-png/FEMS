@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FEMS 원격 모니터링 - 통합 관제</title>
+    <link rel="stylesheet" href="/css/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-you">YOU</span><span class="brand-host">HOST</span>
+        <span class="brand-sub">FEMS 원격 모니터링 · 수신율·정합성 기반 통합 관제</span>
+      </div>
+      <div class="topbar-right">
+        <span id="clock" class="clock"></span>
+        <label class="autorefresh">
+          <input type="checkbox" id="autoToggle" checked /> 자동 새로고침
+        </label>
+        <button id="refreshBtn" class="btn">새로고침</button>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <!-- 전체 요약 -->
+      <section class="summary" id="summary"></section>
+
+      <!-- 사업장별 통합 현황 -->
+      <h2 class="section-title">사업장별 통합 현황 <small>K5 · K3 · K4</small></h2>
+      <section class="site-grid" id="siteGrid"></section>
+
+      <div class="two-col">
+        <!-- 알람 -->
+        <section class="panel">
+          <div class="panel-head">
+            <h2>실시간 알람</h2>
+            <div class="sev-filter" id="sevFilter">
+              <button data-sev="" class="active">전체</button>
+              <button data-sev="긴급">긴급</button>
+              <button data-sev="주의">주의</button>
+              <button data-sev="경고">경고</button>
+            </div>
+          </div>
+          <div class="alarm-list" id="alarmList"></div>
+        </section>
+
+        <!-- 포인트 상태 -->
+        <section class="panel">
+          <div class="panel-head">
+            <h2>계측 포인트 상태</h2>
+            <span class="muted" id="pointCount"></span>
+          </div>
+          <div class="table-scroll">
+            <table class="point-table">
+              <thead>
+                <tr>
+                  <th>포인트</th>
+                  <th>사업장</th>
+                  <th>유형</th>
+                  <th>수신</th>
+                  <th>최근값</th>
+                  <th>상태</th>
+                </tr>
+              </thead>
+              <tbody id="pointTbody"></tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer class="foot">
+      데이터 수집 엔드포인트: <code>POST /api/ingest</code> · 외부 소스 프로그램 연동 지점
+    </footer>
+
+    <script src="/js/dashboard.js"></script>
+  </body>
+</html>
