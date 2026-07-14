@@ -6,166 +6,180 @@
     <title>FEMS 원격 모니터링 · 통합 관제 (데모)</title>
     <style>
       :root {
-        --navy: #1b2a4a;
-        --navy-2: #223a63;
-        --blue: #2f6fb3;
-        --blue-light: #3d8fd1;
-        --bg: #eef2f7;
-        --panel: #ffffff;
-        --line: #dde4ee;
-        --text: #1f2937;
-        --muted: #64748b;
-        --th-bg: #f3f6fa;
-        --track: #e7edf5;
-        --sev-warn: #2fa596;
-        --sev-caution: #d99400;
-        --sev-urgent: #e2453c;
-        --ok: #2bb37a;
-        --warn-bg: #e8f6f3;
-        --caution-bg: #fbf1d8;
-        --urgent-bg: #fbe6e5;
+        --navy:#1b2a4a; --navy-2:#223a63; --blue:#2f6fb3; --blue-light:#3d8fd1;
+        --bg:#eef2f7; --panel:#ffffff; --panel-2:#f7f9fc; --line:#dde4ee;
+        --text:#1f2937; --muted:#64748b; --th-bg:#f3f6fa; --track:#e7edf5;
+        /* 알림 레벨 (Severity) - 긴급/경고/정보/정상 */
+        --crit:#e2453c; --warn:#e0870d; --info:#2f6fb3; --ok:#1fa564;
+        --crit-bg:#fbe6e5; --warn-bg:#fbefd8; --info-bg:#e7f0fa; --ok-bg:#e3f5ec;
+        --equip:#7c5cd6; --equip-bg:#efe9fb;
       }
       @media (prefers-color-scheme: dark) {
         :root {
-          --navy: #0e1729;
-          --navy-2: #16233d;
-          --blue: #4a90d6;
-          --blue-light: #63a8e8;
-          --bg: #0b111d;
-          --panel: #151d2c;
-          --line: #26303f;
-          --text: #e6ecf4;
-          --muted: #93a1b5;
-          --th-bg: #1b2536;
-          --track: #202a3b;
-          --sev-warn: #3cc3b1;
-          --sev-caution: #f2b53d;
-          --sev-urgent: #f2645c;
-          --ok: #3ecb8c;
-          --warn-bg: #16302d;
-          --caution-bg: #322813;
-          --urgent-bg: #33191a;
+          --navy:#0e1729; --navy-2:#16233d; --blue:#4a90d6; --blue-light:#63a8e8;
+          --bg:#0b111d; --panel:#151d2c; --panel-2:#111828; --line:#26303f;
+          --text:#e6ecf4; --muted:#93a1b5; --th-bg:#1b2536; --track:#202a3b;
+          --crit:#f2645c; --warn:#f2ab41; --info:#5aa2e6; --ok:#37c98a;
+          --crit-bg:#33191a; --warn-bg:#322813; --info-bg:#14263b; --ok-bg:#123027;
+          --equip:#a98bef; --equip-bg:#241d3a;
         }
       }
-      :root[data-theme="light"] {
-        --navy: #1b2a4a; --navy-2: #223a63; --blue: #2f6fb3; --blue-light: #3d8fd1;
-        --bg: #eef2f7; --panel: #fff; --line: #dde4ee; --text: #1f2937; --muted: #64748b;
-        --th-bg: #f3f6fa; --track: #e7edf5;
-        --sev-warn: #2fa596; --sev-caution: #d99400; --sev-urgent: #e2453c; --ok: #2bb37a;
-        --warn-bg: #e8f6f3; --caution-bg: #fbf1d8; --urgent-bg: #fbe6e5;
-      }
-      :root[data-theme="dark"] {
-        --navy: #0e1729; --navy-2: #16233d; --blue: #4a90d6; --blue-light: #63a8e8;
-        --bg: #0b111d; --panel: #151d2c; --line: #26303f; --text: #e6ecf4; --muted: #93a1b5;
-        --th-bg: #1b2536; --track: #202a3b;
-        --sev-warn: #3cc3b1; --sev-caution: #f2b53d; --sev-urgent: #f2645c; --ok: #3ecb8c;
-        --warn-bg: #16302d; --caution-bg: #322813; --urgent-bg: #33191a;
-      }
+      :root[data-theme="light"]{--navy:#1b2a4a;--navy-2:#223a63;--blue:#2f6fb3;--blue-light:#3d8fd1;--bg:#eef2f7;--panel:#fff;--panel-2:#f7f9fc;--line:#dde4ee;--text:#1f2937;--muted:#64748b;--th-bg:#f3f6fa;--track:#e7edf5;--crit:#e2453c;--warn:#e0870d;--info:#2f6fb3;--ok:#1fa564;--crit-bg:#fbe6e5;--warn-bg:#fbefd8;--info-bg:#e7f0fa;--ok-bg:#e3f5ec;--equip:#7c5cd6;--equip-bg:#efe9fb;}
+      :root[data-theme="dark"]{--navy:#0e1729;--navy-2:#16233d;--blue:#4a90d6;--blue-light:#63a8e8;--bg:#0b111d;--panel:#151d2c;--panel-2:#111828;--line:#26303f;--text:#e6ecf4;--muted:#93a1b5;--th-bg:#1b2536;--track:#202a3b;--crit:#f2645c;--warn:#f2ab41;--info:#5aa2e6;--ok:#37c98a;--crit-bg:#33191a;--warn-bg:#322813;--info-bg:#14263b;--ok-bg:#123027;--equip:#a98bef;--equip-bg:#241d3a;}
 
-      * { box-sizing: border-box; }
-      html { color-scheme: light dark; }
-      body {
-        margin: 0; background: var(--bg); color: var(--text);
-        font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Segoe UI", Roboto, sans-serif;
-        font-variant-numeric: tabular-nums;
-      }
+      *{box-sizing:border-box;}
+      html{color-scheme:light dark;}
+      body{margin:0;background:var(--bg);color:var(--text);font-variant-numeric:tabular-nums;
+        font-family:"Malgun Gothic","Apple SD Gothic Neo","Segoe UI",Roboto,sans-serif;}
 
-      .topbar {
-        display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;
-        background: linear-gradient(90deg, var(--navy), var(--navy-2));
-        color: #fff; padding: 12px 22px;
-      }
-      .brand { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
-      .brand b { font-size: 22px; font-weight: 800; letter-spacing: 1px; }
-      .brand b .h { color: var(--blue-light); }
-      .brand .sub { font-size: 13px; color: #c1cfe4; margin-left: 10px; }
-      .demo-tag { font-size: 11px; background: rgba(255,255,255,.16); color: #dce6f5;
-        padding: 3px 9px; border-radius: 20px; margin-left: 8px; white-space: nowrap; }
-      .topbar-right { display: flex; align-items: center; gap: 14px; }
-      .clock { font-size: 13px; color: #c9d6ea; }
-      .btn { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.25);
-        border-radius: 7px; padding: 6px 12px; cursor: pointer; font-size: 13px; }
-      .btn:hover { background: rgba(255,255,255,.25); }
-      .btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+      .topbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+        background:linear-gradient(90deg,var(--navy),var(--navy-2));color:#fff;padding:12px 22px;}
+      .brand{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;}
+      .brand b{font-size:22px;font-weight:800;letter-spacing:1px;}
+      .brand b .h{color:var(--blue-light);}
+      .brand .sub{font-size:13px;color:#c1cfe4;margin-left:10px;}
+      .demo-tag{font-size:11px;background:rgba(255,255,255,.16);color:#dce6f5;padding:3px 9px;border-radius:20px;margin-left:8px;white-space:nowrap;}
+      .topbar-right{display:flex;align-items:center;gap:12px;}
+      .clock{font-size:13px;color:#c9d6ea;}
+      .btn{background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.25);border-radius:7px;padding:6px 12px;cursor:pointer;font-size:13px;}
+      .btn:hover{background:rgba(255,255,255,.25);}
+      .btn:focus-visible{outline:2px solid #fff;outline-offset:2px;}
 
-      .wrap { max-width: 1320px; margin: 0 auto; padding: 22px; }
-      .section-title { font-size: 15px; margin: 6px 2px 12px; color: var(--text); font-weight: 700; }
-      .section-title small { color: var(--muted); font-weight: 400; font-size: 13px; margin-left: 6px; }
+      /* 탭 네비 */
+      .tabnav{display:flex;gap:2px;background:var(--navy-2);padding:0 22px;flex-wrap:wrap;}
+      .tabnav button{background:none;border:0;color:#b8c6dd;font-size:14px;font-weight:600;padding:12px 18px;cursor:pointer;border-bottom:3px solid transparent;}
+      .tabnav button:hover{color:#fff;}
+      .tabnav button.on{color:#fff;border-bottom-color:var(--blue-light);}
+      .tabnav button:focus-visible{outline:2px solid var(--blue-light);outline-offset:-2px;}
 
-      .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr)); gap: 13px; margin-bottom: 24px; }
-      .kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 11px; padding: 15px 17px; }
-      .kpi .label { font-size: 12px; color: var(--muted); }
-      .kpi .value { font-size: 27px; font-weight: 800; margin-top: 5px; }
-      .kpi .value small { font-size: 13px; font-weight: 600; color: var(--muted); }
-      .kpi.u .value { color: var(--sev-urgent); }
-      .kpi.c .value { color: var(--sev-caution); }
-      .kpi.w .value { color: var(--sev-warn); }
+      .wrap{max-width:1340px;margin:0 auto;padding:22px;}
+      .tabpage{display:none;}
+      .tabpage.on{display:block;}
+      .section-title{font-size:15px;margin:6px 2px 12px;font-weight:700;}
+      .section-title small{color:var(--muted);font-weight:400;font-size:13px;margin-left:6px;}
 
-      .site-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 26px; }
-      .site-card { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; overflow: hidden; }
-      .site-card .head { background: linear-gradient(90deg, var(--blue), var(--blue-light));
-        color: #fff; padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
-      .site-card .head h3 { margin: 0; font-size: 16px; }
-      .site-card .head .badge { font-size: 11px; background: rgba(255,255,255,.22); padding: 3px 9px; border-radius: 11px; }
-      .site-card .body { padding: 16px; }
-      .mrow { display: flex; justify-content: space-between; align-items: center; font-size: 13px; margin-bottom: 6px; }
-      .mrow .k { color: var(--muted); }
-      .mrow .v { font-weight: 700; }
-      .recept { position: relative; height: 20px; background: var(--track); border-radius: 6px; overflow: hidden; margin: 8px 0 4px; }
-      .recept .fill { position: absolute; inset: 0 auto 0 0; background: var(--blue); border-radius: 6px 0 0 6px; transition: width .5s ease; }
-      .recept .fill.c { background: var(--sev-caution); }
-      .recept .fill.u { background: var(--sev-urgent); }
-      .recept .target { position: absolute; top: 0; bottom: 0; right: 0; width: 5%;
-        border-left: 2px dashed var(--ok);
-        background: repeating-linear-gradient(45deg, color-mix(in srgb, var(--ok) 22%, transparent) 0 4px, transparent 4px 8px); }
-      .scale { display: flex; justify-content: space-between; font-size: 10px; color: var(--muted); }
-      .chips { display: flex; gap: 6px; margin-top: 13px; }
-      .chip { flex: 1; text-align: center; font-size: 11px; padding: 8px 4px; border-radius: 7px; }
-      .chip .n { display: block; font-size: 17px; font-weight: 800; }
-      .chip.w { background: var(--warn-bg); color: var(--sev-warn); }
-      .chip.c { background: var(--caution-bg); color: var(--sev-caution); }
-      .chip.u { background: var(--urgent-bg); color: var(--sev-urgent); }
+      .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:13px;margin-bottom:24px;}
+      .kpi{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:15px 17px;}
+      .kpi .label{font-size:12px;color:var(--muted);}
+      .kpi .value{font-size:27px;font-weight:800;margin-top:5px;}
+      .kpi .value small{font-size:13px;font-weight:600;color:var(--muted);}
+      .kpi.crit .value{color:var(--crit);} .kpi.warn .value{color:var(--warn);}
+      .kpi.info .value{color:var(--info);} .kpi.ok .value{color:var(--ok);}
 
-      .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-      @media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
-      .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 13px; }
-      .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 1px solid var(--line); }
-      .panel-head h2 { margin: 0; font-size: 15px; }
-      .muted { color: var(--muted); font-size: 12px; }
-      .filter button { border: 1px solid var(--line); background: transparent; color: var(--muted);
-        font-size: 12px; padding: 4px 11px; border-radius: 15px; cursor: pointer; margin-left: 4px; }
-      .filter button.on { background: var(--navy); color: #fff; border-color: var(--navy); }
-      .filter button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+      .site-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px;margin-bottom:26px;}
+      .site-card{background:var(--panel);border:1px solid var(--line);border-radius:13px;overflow:hidden;}
+      .site-card .head{background:linear-gradient(90deg,var(--blue),var(--blue-light));color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;}
+      .site-card .head h3{margin:0;font-size:16px;}
+      .site-card .head .badge{font-size:11px;background:rgba(255,255,255,.22);padding:3px 9px;border-radius:11px;}
+      .site-card .body{padding:16px;}
+      .mrow{display:flex;justify-content:space-between;align-items:center;font-size:13px;margin-bottom:6px;}
+      .mrow .k{color:var(--muted);}
+      .mrow .v{font-weight:700;}
+      .recept{position:relative;height:20px;background:var(--track);border-radius:6px;overflow:hidden;margin:8px 0 4px;}
+      .recept .fill{position:absolute;inset:0 auto 0 0;background:var(--blue);border-radius:6px 0 0 6px;transition:width .5s ease;}
+      .recept .fill.warn{background:var(--warn);} .recept .fill.crit{background:var(--crit);}
+      .recept .target{position:absolute;top:0;bottom:0;right:0;width:5%;border-left:2px dashed var(--ok);
+        background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--ok) 22%,transparent) 0 4px,transparent 4px 8px);}
+      .scale{display:flex;justify-content:space-between;font-size:10px;color:var(--muted);}
+      .chips{display:flex;gap:6px;margin-top:13px;}
+      .chip{flex:1;text-align:center;font-size:11px;padding:8px 4px;border-radius:7px;}
+      .chip .n{display:block;font-size:17px;font-weight:800;}
+      .chip.crit{background:var(--crit-bg);color:var(--crit);} .chip.warn{background:var(--warn-bg);color:var(--warn);}
+      .chip.info{background:var(--info-bg);color:var(--info);} .chip.ok{background:var(--ok-bg);color:var(--ok);}
 
-      .alarms { max-height: 470px; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-      .alarm { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 9px;
-        border-left: 4px solid var(--line); background: color-mix(in srgb, var(--panel) 90%, var(--bg)); }
-      .alarm.u { border-left-color: var(--sev-urgent); background: var(--urgent-bg); }
-      .alarm.c { border-left-color: var(--sev-caution); background: var(--caution-bg); }
-      .alarm.w { border-left-color: var(--sev-warn); background: var(--warn-bg); }
-      .tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 11px; color: #fff; white-space: nowrap; }
-      .tag.u { background: var(--sev-urgent); } .tag.c { background: var(--sev-caution); } .tag.w { background: var(--sev-warn); }
-      .a-body { flex: 1; min-width: 0; }
-      .a-msg { font-size: 13px; font-weight: 600; }
-      .a-meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
-      .a-act button { font-size: 11px; border: 1px solid var(--line); background: var(--panel); color: var(--text);
-        border-radius: 6px; padding: 3px 8px; cursor: pointer; }
-      .empty { text-align: center; color: var(--muted); padding: 46px 0; font-size: 13px; }
+      .panel{background:var(--panel);border:1px solid var(--line);border-radius:13px;}
+      .panel-head{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;gap:8px;}
+      .panel-head h2{margin:0;font-size:15px;}
+      .muted{color:var(--muted);font-size:12px;}
 
-      .tscroll { max-height: 470px; overflow: auto; }
-      table { width: 100%; border-collapse: collapse; font-size: 13px; }
-      th { position: sticky; top: 0; background: var(--th-bg); text-align: left; padding: 9px 12px; color: var(--muted); font-weight: 600; font-size: 12px; }
-      td { padding: 9px 12px; border-top: 1px solid var(--line); }
-      .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; }
-      .dot.on { background: var(--ok); } .dot.off { background: var(--sev-urgent); }
-      .pill { font-size: 11px; padding: 2px 8px; border-radius: 11px; }
-      .pill.ok { background: var(--warn-bg); color: var(--ok); }
-      .pill.u { background: var(--urgent-bg); color: var(--sev-urgent); }
-      .pill.c { background: var(--caution-bg); color: var(--sev-caution); }
-      .pill.w { background: var(--warn-bg); color: var(--sev-warn); }
-      .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 22px; line-height: 1.7; }
-      .foot code { background: var(--th-bg); padding: 2px 6px; border-radius: 4px; }
-      @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+      /* 레벨 배지 */
+      .lv{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700;padding:2px 9px;border-radius:12px;white-space:nowrap;}
+      .lv.crit{background:var(--crit-bg);color:var(--crit);} .lv.warn{background:var(--warn-bg);color:var(--warn);}
+      .lv.info{background:var(--info-bg);color:var(--info);} .lv.ok{background:var(--ok-bg);color:var(--ok);}
+      .sicon{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:12px;color:#fff;font-weight:700;}
+      .sicon.crit{background:var(--crit);} .sicon.warn{background:var(--warn);}
+      .sicon.info{background:var(--info);} .sicon.ok{background:var(--ok);}
+
+      /* 알림 센터 */
+      .ac-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:16px;}
+      .ac-card{background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px 15px;}
+      .ac-card .l{font-size:12px;color:var(--muted);}
+      .ac-card .v{font-size:24px;font-weight:800;margin-top:3px;}
+      .ac-card .v small{font-size:12px;font-weight:600;color:var(--muted);margin-left:2px;}
+      .ac-card.crit .v{color:var(--crit);} .ac-card.warn .v{color:var(--warn);}
+      .ac-card.info .v{color:var(--info);} .ac-card.ok .v{color:var(--ok);}
+      .ac-card.unack .v{color:var(--crit);}
+      .ac-toolbar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line);}
+      .ac-tabs{display:flex;gap:4px;flex-wrap:wrap;}
+      .ac-tabs button{border:1px solid var(--line);background:transparent;color:var(--muted);font-size:12.5px;padding:6px 12px;border-radius:8px;cursor:pointer;}
+      .ac-tabs button.on{background:var(--navy);color:#fff;border-color:var(--navy);}
+      .ac-tabs button:focus-visible{outline:2px solid var(--blue);outline-offset:1px;}
+      .ac-filters{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+      select{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:12.5px;}
+      .link-btn{background:none;border:0;color:var(--blue);font-size:12.5px;cursor:pointer;text-decoration:underline;}
+
+      .tscroll{overflow:auto;}
+      table{width:100%;border-collapse:collapse;font-size:13px;}
+      th{position:sticky;top:0;background:var(--th-bg);text-align:left;padding:10px 12px;color:var(--muted);font-weight:600;font-size:12px;white-space:nowrap;}
+      td{padding:10px 12px;border-top:1px solid var(--line);vertical-align:middle;}
+      tr.clickable{cursor:pointer;}
+      tr.clickable:hover td{background:var(--panel-2);}
+      tr.sel td{background:var(--info-bg);}
+      .tag-type{font-size:12px;color:var(--text);}
+      .content-txt{font-weight:600;}
+      .content-txt.crit{color:var(--crit);} .content-txt.warn{color:var(--warn);} .content-txt.info{color:var(--info);}
+      .ackpill{font-size:11px;padding:2px 8px;border-radius:10px;}
+      .ackpill.no{background:var(--crit-bg);color:var(--crit);} .ackpill.yes{background:var(--info-bg);color:var(--info);}
+      .ackpill.na{background:var(--track);color:var(--muted);}
+      .zoom{background:none;border:1px solid var(--line);border-radius:6px;padding:3px 7px;cursor:pointer;color:var(--muted);}
+      .pager{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;gap:10px;flex-wrap:wrap;}
+      .pager .pages{display:flex;gap:4px;}
+      .pager .pages button{min-width:30px;height:30px;border:1px solid var(--line);background:var(--panel);color:var(--text);border-radius:6px;cursor:pointer;}
+      .pager .pages button.on{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+      /* 상세 패널 */
+      .ac-detail{margin-top:16px;border:1px solid var(--line);border-radius:13px;background:var(--panel);overflow:hidden;}
+      .ac-detail .dhead{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid var(--line);background:var(--panel-2);}
+      .ac-detail .dhead .t{font-size:15px;font-weight:700;display:flex;align-items:center;gap:8px;}
+      .ac-detail .close{background:none;border:0;font-size:18px;cursor:pointer;color:var(--muted);}
+      .dgrid{display:grid;grid-template-columns:1fr 1fr 1.4fr 0.9fr;gap:0;}
+      @media (max-width:1000px){.dgrid{grid-template-columns:1fr 1fr;}}
+      @media (max-width:640px){.dgrid{grid-template-columns:1fr;}}
+      .dcol{padding:16px;border-right:1px solid var(--line);}
+      .dcol:last-child{border-right:0;}
+      .dcol h4{margin:0 0 10px;font-size:13px;color:var(--muted);font-weight:700;}
+      .dfield{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:4px 0;}
+      .dfield .k{color:var(--muted);} .dfield .v{font-weight:600;text-align:right;}
+      .desc{font-size:12.5px;color:var(--text);margin-top:8px;line-height:1.6;}
+      canvas.trend{width:100%;height:120px;display:block;}
+      .trend-cap{font-size:11px;color:var(--muted);margin-top:4px;}
+      .act-btns{display:flex;flex-direction:column;gap:8px;}
+      .act-btns button{border:1px solid var(--line);border-radius:8px;padding:8px;cursor:pointer;font-size:13px;font-weight:600;}
+      .act-btns .primary{background:var(--blue);color:#fff;border-color:var(--blue);}
+      .act-btns .ghost{background:var(--panel);color:var(--text);}
+      textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:12.5px;background:var(--panel);color:var(--text);resize:vertical;min-height:52px;margin-top:8px;font-family:inherit;}
+
+      /* 정의 탭 */
+      .defs{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+      @media (max-width:820px){.defs{grid-template-columns:1fr;}}
+      .def-list{display:flex;flex-direction:column;gap:12px;}
+      .def-card{display:flex;gap:14px;background:var(--panel);border:1px solid var(--line);border-left-width:5px;border-radius:11px;padding:15px 16px;}
+      .def-card.t1{border-left-color:var(--ok);} .def-card.t2{border-left-color:var(--warn);}
+      .def-card.t3{border-left-color:var(--crit);} .def-card.t4{border-left-color:var(--equip);}
+      .def-ic{flex:none;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#fff;}
+      .def-card.t1 .def-ic{background:var(--ok);} .def-card.t2 .def-ic{background:var(--warn);}
+      .def-card.t3 .def-ic{background:var(--crit);} .def-card.t4 .def-ic{background:var(--equip);}
+      .def-card h3{margin:0 0 5px;font-size:15px;}
+      .def-card p{margin:0;font-size:12.5px;color:var(--muted);line-height:1.6;}
+      .def-card ul{margin:8px 0 0;padding-left:18px;font-size:12px;color:var(--muted);line-height:1.7;}
+      .sev-legend{display:flex;flex-direction:column;gap:10px;}
+      .sev-item{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:13px 15px;}
+      .sev-dot{width:14px;height:14px;border-radius:4px;flex:none;}
+      .sev-item .nm{font-weight:700;font-size:14px;} .sev-item .ds{font-size:12.5px;color:var(--muted);}
+
+      .foot{text-align:center;color:var(--muted);font-size:12px;padding:22px;line-height:1.7;}
+      .foot code{background:var(--th-bg);padding:2px 6px;border-radius:4px;}
+      @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
     </style>
   </head>
   <body>
@@ -182,299 +196,471 @@
       </div>
     </header>
 
+    <nav class="tabnav" id="tabnav">
+      <button data-tab="overview" class="on" type="button">통합 현황</button>
+      <button data-tab="sites" type="button">사업장별 상세</button>
+      <button data-tab="alarms" type="button">알림 센터</button>
+      <button data-tab="defs" type="button">알림 정의</button>
+    </nav>
+
     <main class="wrap">
-      <section class="summary" id="summary"></section>
+      <!-- 통합 현황 -->
+      <section class="tabpage on" id="tab-overview">
+        <section class="summary" id="summary"></section>
+        <h2 class="section-title">사업장별 통합 현황 <small>K5 · K3 · K4 · 실시간 수신율·정합성·SLA</small></h2>
+        <section class="site-grid" id="siteGrid"></section>
+      </section>
 
-      <h2 class="section-title">사업장별 통합 현황 <small>K5 · K3 · K4 · 실시간 수신율·정합성·SLA</small></h2>
-      <section class="site-grid" id="siteGrid"></section>
+      <!-- 사업장별 상세 -->
+      <section class="tabpage" id="tab-sites">
+        <div class="ac-tabs" id="siteTabs" style="margin-bottom:16px"></div>
+        <div id="siteDetail"></div>
+      </section>
 
-      <div class="two-col">
+      <!-- 알림 센터 -->
+      <section class="tabpage" id="tab-alarms">
+        <section class="ac-summary" id="acSummary"></section>
         <section class="panel">
-          <div class="panel-head">
-            <h2>실시간 알람</h2>
-            <div class="filter" id="filter">
-              <button data-s="" class="on" type="button">전체</button>
-              <button data-s="긴급" type="button">긴급</button>
-              <button data-s="주의" type="button">주의</button>
-              <button data-s="경고" type="button">경고</button>
+          <div class="ac-toolbar">
+            <div class="ac-tabs" id="acTypeTabs"></div>
+            <div class="ac-filters">
+              <select id="fEquip"><option value="">전체 설비</option></select>
+              <select id="fLevel">
+                <option value="">전체 레벨</option>
+                <option value="긴급">긴급</option><option value="경고">경고</option>
+                <option value="정보">정보</option><option value="정상">정상</option>
+              </select>
+              <button class="link-btn" id="fReset" type="button">필터 초기화</button>
             </div>
-          </div>
-          <div class="alarms" id="alarms"></div>
-        </section>
-
-        <section class="panel">
-          <div class="panel-head">
-            <h2>계측 포인트 상태</h2>
-            <span class="muted" id="pcount"></span>
           </div>
           <div class="tscroll">
             <table>
-              <thead><tr><th>포인트</th><th>사업장</th><th>유형</th><th>수신</th><th>최근값</th><th>상태</th></tr></thead>
-              <tbody id="ptbody"></tbody>
+              <thead><tr>
+                <th>상태</th><th>레벨</th><th>알림 유형</th><th>설비/계측기</th><th>내용</th>
+                <th>발생 시간</th><th>지속 시간</th><th>확인</th><th>조치</th>
+              </tr></thead>
+              <tbody id="acBody"></tbody>
             </table>
           </div>
+          <div class="pager">
+            <span class="muted" id="acTotal"></span>
+            <div class="pages" id="acPages"></div>
+          </div>
         </section>
-      </div>
+        <section class="ac-detail" id="acDetail" style="display:none"></section>
+      </section>
+
+      <!-- 알림 정의 -->
+      <section class="tabpage" id="tab-defs">
+        <div class="defs">
+          <div>
+            <h2 class="section-title">알림 정의 및 분류</h2>
+            <div class="def-list">
+              <div class="def-card t1"><div class="def-ic">✓</div><div>
+                <h3>1. 데이터 정상</h3><p>계측기 및 유량계 데이터가 정상적으로 수신되고 있는 상태</p></div></div>
+              <div class="def-card t2"><div class="def-ic">!</div><div>
+                <h3>2. 데이터 수신 비정상</h3>
+                <p>데이터 정합성(설비/센서/통신) 문제로 인해 데이터 수신 값이 비정상인 상태</p>
+                <ul><li>데이터 누적값 상태 확인</li><li>동일값 지속 계측</li><li>측정값 비정상적 수치</li><li>데이터 끊김</li></ul></div></div>
+              <div class="def-card t3"><div class="def-ic">⚡</div><div>
+                <h3>3. 전력 피크</h3><p>계약 전력 또는 설정 전력을 초과할 것으로 예측/발생한 상태</p></div></div>
+              <div class="def-card t4"><div class="def-ic">⚙</div><div>
+                <h3>4. 설비 가동 이상</h3><p>설비의 운전 상태 이상 또는 비정상 정지/알람 발생 상태</p></div></div>
+            </div>
+          </div>
+          <div>
+            <h2 class="section-title">알림 레벨 (Severity)</h2>
+            <div class="sev-legend">
+              <div class="sev-item"><span class="sev-dot" style="background:var(--crit)"></span><div><div class="nm">긴급 (Critical)</div><div class="ds">즉시 조치가 필요한 심각한 알림</div></div></div>
+              <div class="sev-item"><span class="sev-dot" style="background:var(--warn)"></span><div><div class="nm">경고 (Warning)</div><div class="ds">확인이 필요한 주의 알림</div></div></div>
+              <div class="sev-item"><span class="sev-dot" style="background:var(--info)"></span><div><div class="nm">정보 (Info)</div><div class="ds">참고가 필요한 일반 알림</div></div></div>
+              <div class="sev-item"><span class="sev-dot" style="background:var(--ok)"></span><div><div class="nm">정상 (Normal)</div><div class="ds">정상 상태 알림</div></div></div>
+            </div>
+            <h2 class="section-title" style="margin-top:22px">대응 프로세스</h2>
+            <div class="panel" style="padding:15px 16px;font-size:12.5px;color:var(--muted);line-height:1.8">
+              알림 발생 → 원인 파악(관제센터 원격 확인) → 고객 유선 확인 요청 → 필요 시 현장 방문 및 조치 → 조치 완료 후 이력 등록·리포트<br/>
+              <span style="color:var(--text)">협력사 연계</span> : 전력계측기(가니) · 유량계(신아시스템) H/W A/S
+            </div>
+          </div>
+        </div>
+      </section>
     </main>
 
     <footer class="foot">
       이 페이지는 <b>브라우저 내장 시뮬레이션</b>으로 동작하는 미리보기입니다 — 설치·서버 없이 접속됩니다.<br />
-      실제 운영 시스템은 외부 소스 프로그램이 <code>POST /api/ingest</code> 로 계측값을 전송하고,
-      Node 백엔드가 동일한 로직으로 판정합니다. (소스: github.com/changbeomlee0816-png/FEMS)
+      실제 운영 시스템은 외부 소스 프로그램이 <code>POST /api/ingest</code> 로 계측값을 전송하고, Node 백엔드가 동일 로직으로 판정합니다. (소스: github.com/changbeomlee0816-png/FEMS)
     </footer>
 
     <script>
       "use strict";
-      // ── 데모 설정 (제안서 12~13p 로직을 브라우저에서 시연. 임계값은 초 단위로 축소) ──
-      const RANK = { 경고: 1, 주의: 2, 긴급: 3 };
-      const SEV_C = { 긴급: "u", 주의: "c", 경고: "w" };
-      const CFG = {
-        tickMs: 2000,
-        staleSec: 8,            // 이 시간 이상 미수신이면 오프라인
-        stuckCount: 5,          // 동일값 N회 연속 → 정합성 이상
-        outRange: [[50,"긴급"],[20,"주의"],[0,"경고"]],
-        stuck: [[24,"긴급"],[12,"주의"],[5,"경고"]],
-        outage: [[24,"긴급"],[12,"주의"],[6,"경고"]],   // 미수신 초 → 심각도
-        zero:   [[24,"긴급"],[16,"주의"],[8,"경고"]],   // 유효전력 0 지속 초 → 심각도
-        peak:   [[20,"긴급"],[10,"주의"],[0,"경고"]],
-        siteRecept: [[80,"긴급"],[90,"주의"],[95,"경고"]],
-      };
-      const POINTS = [
-        { key:"K5-PWR-001", site:"K5", name:"K5 메인 수전", type:"power", unit:"kW", max:1200, peak:1000 },
-        { key:"K5-PWR-002", site:"K5", name:"K5 생산라인A", type:"power", unit:"kW", max:800, peak:700 },
-        { key:"K5-FLW-001", site:"K5", name:"K5 냉각수 유량", type:"flow", unit:"m³/h", max:500 },
-        { key:"K3-PWR-001", site:"K3", name:"K3 메인 수전", type:"power", unit:"kW", max:1000, peak:850 },
-        { key:"K3-PWR-002", site:"K3", name:"K3 유틸리티동", type:"power", unit:"kW", max:600 },
-        { key:"K4-PWR-001", site:"K4", name:"K4 메인 수전", type:"power", unit:"kW", max:900, peak:800 },
-        { key:"K4-FLW-001", site:"K4", name:"K4 압축공기 유량", type:"flow", unit:"m³/h", max:300 },
-        { key:"K5-PWR-OFF", site:"K5", name:"K5 설비 정지(가동중단)", type:"power", unit:"kW", peak:500, mode:"zero" },
-        { key:"K3-PWR-STK", site:"K3", name:"K3 통신불량(동일값)", type:"power", unit:"kW", max:700, mode:"stuck" },
-        { key:"K4-PWR-DEAD", site:"K4", name:"K4 미수신(전원차단)", type:"power", unit:"kW", mode:"dead" },
+      const RANK={긴급:4,경고:3,정보:2,정상:1};
+      const LVCLS={긴급:"crit",경고:"warn",정보:"info",정상:"ok"};
+      const LVICON={긴급:"!",경고:"!",정보:"i",정상:"✓"};
+      const TYPES=["데이터 정상","데이터 수신 비정상","전력 피크","설비 가동 이상"];
+
+      // 설비/계측기 (K5·K3·K4). mode 로 이상 상황 시연.
+      const EQUIP=[
+        {id:"K5-PWR-001",site:"K5",name:"K5 Main 수전반",kind:"전력계측기",unit:"kW",max:1200,peak:1000,mode:"peak"},
+        {id:"K5-PWR-002",site:"K5",name:"K5 생산라인A",kind:"전력계측기",unit:"kW",max:800,peak:700},
+        {id:"K5-FLW-101",site:"K5",name:"유량계-101",kind:"유량계",unit:"m³/h",max:150,cum:true,mode:"dead"},
+        {id:"K5-TMP-201",site:"K5",name:"온도센서-201",kind:"온도센서",unit:"℃",max:80,mode:"stuck"},
+        {id:"K5-PMP-1",site:"K5",name:"펌프-1",kind:"펌프",unit:"Hz",max:60,mode:"vibration"},
+        {id:"K3-PWR-001",site:"K3",name:"K3 Main 수전반",kind:"전력계측기",unit:"kW",max:1000,peak:850,mode:"peak95"},
+        {id:"K3-PWR-002",site:"K3",name:"K3 유틸리티동",kind:"전력계측기",unit:"kW",max:600},
+        {id:"K3-FLW-102",site:"K3",name:"유량계-102",kind:"유량계",unit:"m³/h",max:120,cum:true},
+        {id:"K3-PRS-301",site:"K3",name:"압력센서-301",kind:"압력센서",unit:"bar",max:10,mode:"outrange"},
+        {id:"K4-PWR-001",site:"K4",name:"K4 Main 수전반",kind:"전력계측기",unit:"kW",max:900,peak:800},
+        {id:"K4-FLW-001",site:"K4",name:"K4 압축공기 유량",kind:"유량계",unit:"m³/h",max:300,cum:true},
+        {id:"K4-BOI-1",site:"K4",name:"보일러-1",kind:"보일러",unit:"℃",max:110,mode:"hightemp"},
+        {id:"K4-PWR-OFF",site:"K4",name:"K4 설비 정지동",kind:"전력계측기",unit:"kW",peak:500,mode:"zero"},
       ];
-      const SITES = [ {id:"K5",name:"K5 사업장"}, {id:"K3",name:"K3 사업장"}, {id:"K4",name:"K4 사업장"} ];
+      const SITES=[{id:"K5",name:"K5 사업장"},{id:"K3",name:"K3 사업장"},{id:"K4",name:"K4 사업장"}];
+      const STALE=8;
 
-      const now = () => Date.now();
-      const rnd = (a,b) => a + Math.random()*(b-a);
-      const pick = (val, rules, cmp) => { for (const [t,s] of rules) if (cmp(val,t)) return s; return null; };
-      const round1 = n => Math.round(n*10)/10;
+      const now=()=>Date.now();
+      const rnd=(a,b)=>a+Math.random()*(b-a);
+      const r1=n=>Math.round(n*10)/10;
+      const rt={}; EQUIP.forEach(e=>{const o={last:null,ts:0,zeroSince:0,stuckN:0,cum:rnd(1000,5000),hist:[]};
+        if(e.mode==="dead"){for(let i=0;i<26;i++)o.hist.push(r1(rnd(85,120)));for(let i=1;i<=8;i++)o.hist.push(r1(Math.max(0,rnd(0,18)*(8-i)/8)));}
+        rt[e.id]=o;});
+      const alarms=new Map();               // key -> alarm object (상태 유지)
+      const memos={};
 
-      // 포인트 런타임 상태
-      const st = {};
-      for (const p of POINTS) st[p.key] = { last:null, ts:0, zeroSince:0, stuckN:0, history:[] };
-
-      const alarms = new Map();   // dedup_key -> alarm
-      const acked = new Set();
-
-      function tick() {
-        const t = now();
-        for (const p of POINTS) {
-          const s = st[p.key];
-          if (p.mode === "dead") continue;              // 데이터 미전송
-          let v, eff;
-          if (p.mode === "zero") { v = 0; eff = 0; }
-          else if (p.mode === "stuck") { v = 512; eff = 512; }
-          else if (p.type === "power") {
-            const base = (p.max||500)*0.7;
-            const spike = (p.key==="K5-PWR-001" && Math.random()<0.16) ? 1.45 : 1;
-            v = round1(rnd(base*0.85, base*1.05)*spike); eff = v;
-          } else { v = round1(rnd((p.max||300)*0.5,(p.max||300)*0.8)); eff = null; }
-          if (s.last === v) s.stuckN++; else s.stuckN = 1;
-          if (p.type === "power") { if (eff === 0) { if (!s.zeroSince) s.zeroSince = t; } else s.zeroSince = 0; }
-          s.last = v; s.eff = eff; s.ts = t;
-          s.history.push(v); if (s.history.length > 40) s.history.shift();
+      function tick(){
+        const t=now();
+        for(const e of EQUIP){
+          const s=rt[e.id];
+          if(e.mode==="dead"){continue;}     // 데이터 끊김 (미수신)
+          let v;
+          if(e.mode==="zero") v=0;
+          else if(e.mode==="stuck") v=42.0;
+          else if(e.mode==="hightemp") v=r1(rnd(103,109));
+          else if(e.mode==="vibration") v=r1(rnd(48,58));
+          else if(e.mode==="outrange") v=r1(rnd(11.5,13));
+          else if(e.mode==="peak95") v=r1((e.peak)*rnd(0.93,0.99));
+          else if(e.kind==="전력계측기"){const b=(e.max||500)*0.7;const sp=(e.mode==="peak"&&Math.random()<0.5)?1.35:1;v=r1(rnd(b*0.85,b*1.02)*sp);}
+          else if(e.kind==="온도센서") v=r1(rnd(45,62));
+          else if(e.kind==="압력센서") v=r1(rnd(4,7));
+          else if(e.kind==="펌프") v=r1(rnd(45,55));
+          else if(e.kind==="보일러") v=r1(rnd(70,88));
+          else v=r1(rnd((e.max||100)*0.5,(e.max||100)*0.8));
+          if(s.last===v)s.stuckN++;else s.stuckN=1;
+          if(v===0){if(!s.zeroSince)s.zeroSince=t;}else s.zeroSince=0;
+          if(e.cum)s.cum+=v/60;
+          s.last=v;s.ts=t;s.hist.push(v);if(s.hist.length>60)s.hist.shift();
         }
         evaluate(t);
-        render();
+        renderClock();
+        renderActive();
       }
 
-      function evaluate(t) {
-        const seen = new Set();
-        const raise = (o) => {
-          seen.add(o.key);
-          const prev = alarms.get(o.key);
-          o.firstTs = prev ? prev.firstTs : t;
-          o.lastTs = t;
-          o.status = acked.has(o.key) ? "ack" : "active";
-          alarms.set(o.key, o);
-        };
+      function raise(o,seen){
+        seen.add(o.key);
+        const prev=alarms.get(o.key);
+        // 발생시간은 최초 1회 고정 (과거 시점으로 자연스럽게 배치)
+        o.startTs=prev?prev.startTs:(now()-Math.round(rnd(4,95))*60000);
+        o.ack=prev?prev.ack:(o.level==="정상");
+        o.action=prev?prev.action:null;
+        o.id=prev?prev.id:o.key;
+        alarms.set(o.key,o);
+      }
 
-        for (const p of POINTS) {
-          const s = st[p.key];
-          const online = s.ts && (t - s.ts)/1000 <= CFG.staleSec;
-          // 1) 수신율 — 개별 미수신
-          if (!online) {
-            const secs = s.ts ? (t - s.ts)/1000 : 999;
-            const sev = pick(secs, CFG.outage, (a,b)=>a>b);
-            if (sev) raise({ key:`rc:${p.key}`, site:p.site, cat:"수신율", sev, code:"POINT_OUTAGE",
-              cause:"계측기 통신 끊김 / 판넬 전원 차단 의심",
-              msg:`[${p.name}] 데이터 미수신 ${s.ts?Math.round(secs)+"초 경과":"이력 없음"}` });
+      function evaluate(t){
+        const seen=new Set();
+        for(const e of EQUIP){
+          const s=rt[e.id];
+          const online=s.ts&&(t-s.ts)/1000<=STALE;
+          const base={equip:e.name,equipId:e.id,site:e.site,kind:e.kind,unit:e.unit};
+
+          if(!online){
+            raise({...base,key:`dead:${e.id}`,type:"데이터 수신 비정상",level:"긴급",subtype:"데이터 끊김",
+              content:"데이터 끊김 (1시간 이상)",comm:"연결 끊김",cause:"통신 장비 오류 또는 센서 문제",
+              desc:"1시간 이상 데이터가 수신되지 않고 있습니다."},seen);
+            continue;
           }
-          if (!s.ts) continue;
-          // 2) 정합성 — 동일값 지속
-          if (s.stuckN >= CFG.stuckCount) {
-            const sev = pick(s.stuckN, CFG.stuck, (a,b)=>a>b);
-            if (sev) raise({ key:`stk:${p.key}`, site:p.site, cat:"정합성", sev, code:"STUCK_VALUE",
-              cause:"동일 값 지속 → 데이터 집계 오류/통신 끊김 의심",
-              msg:`[${p.name}] 동일 값(${s.last}) ${s.stuckN}회 연속 수신` });
+          if(!s.ts) continue;
+
+          if(e.mode==="stuck"&&s.stuckN>=5){
+            raise({...base,key:`stuck:${e.id}`,type:"데이터 수신 비정상",level:"경고",subtype:"동일값 지속",
+              content:`동일값 지속 계측 (30분 이상)`,comm:"정상",cause:"센서 고착 또는 통신 지연",
+              desc:"동일한 계측값이 지속적으로 수신되고 있습니다."},seen);
           }
-          // 2) 정합성 — 정상범위 초과
-          if (p.max != null && s.last > p.max) {
-            const over = (s.last - p.max)/p.max*100;
-            const sev = pick(over, CFG.outRange, (a,b)=>a>b);
-            if (sev) raise({ key:`rng:${p.key}`, site:p.site, cat:"정합성", sev, code:"OUT_OF_RANGE",
-              cause:"정상 범위 초과 이상치 (센서/결선 이상 의심)",
-              msg:`[${p.name}] 이상치 ${s.last}${p.unit} (정상 ~${p.max})` });
+          if(e.mode==="outrange"){
+            raise({...base,key:`rng:${e.id}`,type:"데이터 수신 비정상",level:"경고",subtype:"측정값 비정상 수치",
+              content:"측정값 비정상적 수치",comm:"정상",cause:"센서 결선/교정 이상 의심",
+              desc:`정상 범위(0~${e.max}${e.unit})를 벗어난 값이 계측되었습니다.`},seen);
           }
-          // 3) 전력 피크 / 유효전력 Zero
-          if (p.type === "power") {
-            if (s.zeroSince) {
-              const zs = (t - s.zeroSince)/1000;
-              const sev = pick(zs, CFG.zero, (a,b)=>a>b);
-              if (sev) raise({ key:`zero:${p.key}`, site:p.site, cat:"설비가동", sev, code:"ZERO_POWER",
-                cause:"유효전력 0 지속 → 설비 미가동 / 판넬 전원 차단 / 계측기 불량",
-                msg:`[${p.name}] 유효전력 Zero ${Math.round(zs)}초 지속` });
-            }
-            if (p.peak != null && s.last > p.peak) {
-              const over = (s.last - p.peak)/p.peak*100;
-              const sev = pick(over, CFG.peak, (a,b)=>a>b);
-              if (sev) raise({ key:`peak:${p.key}`, site:p.site, cat:"전력피크", sev, code:"POWER_PEAK",
-                cause:"부하시간대별 전력 피크 초과",
-                msg:`[${p.name}] 전력 피크 ${s.last}${p.unit} (임계 ${p.peak})` });
+          if(e.kind==="전력계측기"&&e.peak){
+            if(e.mode==="peak95"){
+              raise({...base,key:`peak:${e.id}`,type:"전력 피크",level:"경고",subtype:"전력 피크",
+                content:"전력 사용량 95% 도달",comm:"정상",cause:"부하 집중 (피크 임박)",
+                desc:`계약전력 대비 사용량이 95%에 도달했습니다. (임계 ${e.peak}${e.unit})`},seen);
+            } else if(s.last>e.peak){
+              raise({...base,key:`peak:${e.id}`,type:"전력 피크",level:"긴급",subtype:"전력 피크",
+                content:`전력 피크 초과 (${s.last}${e.unit})`,comm:"정상",cause:"부하시간대 피크 초과",
+                desc:`계약/설정 전력(${e.peak}${e.unit})을 초과했습니다.`},seen);
             }
           }
-        }
-        // 사업장 수신율 저하
-        const m = siteMetrics();
-        for (const x of m) {
-          const sev = pick(x.recept, CFG.siteRecept, (a,b)=>a<b);
-          if (sev) raise({ key:`site:${x.id}`, site:x.id, cat:"수신율", sev, code:"SITE_RECEPTION_LOW",
-            cause:"사업장 수신율 관리 목표(95%) 미달",
-            msg:`[${x.name}] 수신율 ${x.recept}% (정상 ${x.online}/${x.total})` });
+          if(e.mode==="zero"&&s.zeroSince){
+            raise({...base,key:`off:${e.id}`,type:"설비 가동 이상",level:"경고",subtype:"비정상 정지",
+              content:"유효전력 0 지속 (가동 중단)",comm:"정상",cause:"설비 미가동 / 판넬 전원 차단",
+              desc:"유효전력이 0으로 지속 검출되어 설비 미가동으로 판단됩니다."},seen);
+          }
+          if(e.mode==="vibration"){
+            raise({...base,key:`vib:${e.id}`,type:"설비 가동 이상",level:"정보",subtype:"비정상 진동",
+              content:"비정상 진동 감지",comm:"정상",cause:"베어링 마모 또는 정렬 불량 의심",
+              desc:"설비 운전 중 비정상 진동이 감지되었습니다. 예방점검을 권장합니다."},seen);
+          }
+          if(e.mode==="hightemp"){
+            raise({...base,key:`temp:${e.id}`,type:"설비 가동 이상",level:"긴급",subtype:"고온 알람",
+              content:"고온 알람 발생",comm:"정상",cause:"냉각 불량 또는 과부하",
+              desc:`설정 온도를 초과했습니다. (현재 ${s.last}${e.unit})`},seen);
+          }
+          // 이상 없는 설비 → 데이터 정상
+          if(!seen.has(`dead:${e.id}`)&&!hasAnyIssue(e.id,seen)){
+            raise({...base,key:`ok:${e.id}`,type:"데이터 정상",level:"정상",subtype:"정상 수신",
+              content:"정상 수신 중",comm:"정상",cause:"-",desc:"데이터가 정상 수신되고 있습니다."},seen);
+          }
         }
         // 자동 해제
-        for (const k of [...alarms.keys()]) if (!seen.has(k)) { alarms.delete(k); acked.delete(k); }
+        for(const k of [...alarms.keys()]) if(!seen.has(k)){alarms.delete(k);delete memos[k];}
+      }
+      function hasAnyIssue(id,seen){
+        return ["stuck","rng","peak","off","vib","temp"].some(p=>seen.has(`${p}:${id}`));
       }
 
-      function siteMetrics() {
-        const t = now();
-        return SITES.map(site => {
-          const pts = POINTS.filter(p => p.site === site.id);
-          let online = 0, integ = 0;
-          for (const p of pts) {
-            const s = st[p.key];
-            const on = s.ts && (t - s.ts)/1000 <= CFG.staleSec;
-            if (on) online++;
-            const bad = alarms.has(`stk:${p.key}`) || alarms.has(`rng:${p.key}`);
-            if (!bad) integ++;
+      function siteMetrics(){
+        const t=now();
+        return SITES.map(site=>{
+          const eq=EQUIP.filter(e=>e.site===site.id);
+          let online=0,integ=0;
+          for(const e of eq){
+            const s=rt[e.id];const on=s.ts&&(t-s.ts)/1000<=STALE;if(on)online++;
+            const bad=alarms.has(`dead:${e.id}`)||alarms.has(`stuck:${e.id}`)||alarms.has(`rng:${e.id}`);
+            if(!bad)integ++;
           }
-          const recept = pts.length ? round1(online/pts.length*100) : 100;
-          const integrity = pts.length ? round1(integ/pts.length*100) : 100;
-          const sla = round1(recept*0.6 + integrity*0.4);
-          const cnt = { 경고:0, 주의:0, 긴급:0 };
-          for (const a of alarms.values()) if (a.site === site.id) cnt[a.sev]++;
-          return { id:site.id, name:site.name, total:pts.length, online, recept, integrity, sla, cnt };
+          const recept=eq.length?r1(online/eq.length*100):100;
+          const integrity=eq.length?r1(integ/eq.length*100):100;
+          const sla=r1(recept*0.6+integrity*0.4);
+          const cnt={긴급:0,경고:0,정보:0,정상:0};
+          for(const a of alarms.values())if(a.site===site.id)cnt[a.level]++;
+          return {id:site.id,name:site.name,total:eq.length,online,recept,integrity,sla,cnt};
         });
       }
 
-      // ── 렌더링 ──
-      let filter = "";
-      const $ = s => document.querySelector(s);
-      const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+      // ── helpers ──
+      const $=s=>document.querySelector(s);
+      const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+      function fmtTime(ts){const d=new Date(ts);const p=n=>String(n).padStart(2,"0");
+        return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;}
+      function fmtDur(ts){const m=Math.floor((now()-ts)/60000);if(m<60)return `${m}분`;return `${Math.floor(m/60)}시간 ${m%60}분`;}
 
-      function render() {
-        const metrics = siteMetrics();
-        const total = metrics.reduce((a,m)=>a+m.total,0);
-        const online = metrics.reduce((a,m)=>a+m.online,0);
-        const cnt = { 경고:0, 주의:0, 긴급:0 };
-        for (const a of alarms.values()) cnt[a.sev]++;
-        const recept = total ? round1(online/total*100) : 100;
-        const rc = recept>=95 ? "" : recept>=90 ? "c" : "u";
-
-        $("#summary").innerHTML = `
-          <div class="kpi"><div class="label">모니터링 사업장</div><div class="value">${metrics.length}<small> 개소</small></div></div>
-          <div class="kpi"><div class="label">전체 계측 포인트</div><div class="value">${total}<small> 개</small></div></div>
+      // ── 통합 현황 ──
+      function renderOverview(){
+        const m=siteMetrics();
+        const total=m.reduce((a,x)=>a+x.total,0),online=m.reduce((a,x)=>a+x.online,0);
+        const c={긴급:0,경고:0,정보:0,정상:0};for(const a of alarms.values())c[a.level]++;
+        const recept=total?r1(online/total*100):100;const rc=recept>=95?"":recept>=90?"warn":"crit";
+        $("#summary").innerHTML=`
+          <div class="kpi"><div class="label">모니터링 사업장</div><div class="value">${m.length}<small> 개소</small></div></div>
+          <div class="kpi"><div class="label">전체 설비/계측기</div><div class="value">${total}<small> 대</small></div></div>
           <div class="kpi ${rc}"><div class="label">전체 수신율 (목표 95%)</div><div class="value">${recept}<small>%</small></div></div>
-          <div class="kpi"><div class="label">정상 수신</div><div class="value">${online}<small> / ${total}</small></div></div>
-          <div class="kpi u"><div class="label">긴급 알람</div><div class="value">${cnt.긴급}</div></div>
-          <div class="kpi c"><div class="label">주의 알람</div><div class="value">${cnt.주의}</div></div>
-          <div class="kpi w"><div class="label">경고 알람</div><div class="value">${cnt.경고}</div></div>`;
-
-        $("#siteGrid").innerHTML = metrics.map(m => {
-          const cls = m.recept>=95 ? "" : m.recept>=90 ? "c" : "u";
-          return `<div class="site-card">
-            <div class="head"><h3>${m.name}</h3><span class="badge">${m.total} 포인트</span></div>
+          <div class="kpi ok"><div class="label">정상 수신</div><div class="value">${online}<small> / ${total}</small></div></div>
+          <div class="kpi crit"><div class="label">긴급</div><div class="value">${c.긴급}</div></div>
+          <div class="kpi warn"><div class="label">경고</div><div class="value">${c.경고}</div></div>
+          <div class="kpi info"><div class="label">정보</div><div class="value">${c.정보}</div></div>`;
+        $("#siteGrid").innerHTML=m.map(x=>{
+          const cls=x.recept>=95?"":x.recept>=90?"warn":"crit";
+          return `<div class="site-card"><div class="head"><h3>${x.name}</h3><span class="badge">${x.total} 설비</span></div>
             <div class="body">
-              <div class="mrow"><span class="k">수신율</span><span class="v">${m.recept}% <span class="muted">(${m.online}/${m.total})</span></span></div>
-              <div class="recept"><div class="fill ${cls}" style="width:${Math.max(0,Math.min(100,m.recept))}%"></div><div class="target" title="관리 목표 95~100%"></div></div>
+              <div class="mrow"><span class="k">수신율</span><span class="v">${x.recept}% <span class="muted">(${x.online}/${x.total})</span></span></div>
+              <div class="recept"><div class="fill ${cls}" style="width:${Math.max(0,Math.min(100,x.recept))}%"></div><div class="target" title="관리 목표 95~100%"></div></div>
               <div class="scale"><span>0%</span><span>95~100%</span></div>
-              <div class="mrow" style="margin-top:12px"><span class="k">데이터 정합성</span><span class="v">${m.integrity}%</span></div>
-              <div class="mrow"><span class="k">SLA 준수율</span><span class="v" style="color:${m.sla>=95?"var(--ok)":"var(--sev-urgent)"}">${m.sla}%</span></div>
+              <div class="mrow" style="margin-top:12px"><span class="k">데이터 정합성</span><span class="v">${x.integrity}%</span></div>
+              <div class="mrow"><span class="k">SLA 준수율</span><span class="v" style="color:${x.sla>=95?"var(--ok)":"var(--crit)"}">${x.sla}%</span></div>
               <div class="chips">
-                <div class="chip w"><span class="n">${m.cnt.경고}</span>경고</div>
-                <div class="chip c"><span class="n">${m.cnt.주의}</span>주의</div>
-                <div class="chip u"><span class="n">${m.cnt.긴급}</span>긴급</div>
-              </div>
-            </div></div>`;
-        }).join("");
-
-        const list = [...alarms.values()].filter(a => !filter || a.sev === filter)
-          .sort((a,b) => RANK[b.sev]-RANK[a.sev] || b.lastTs-a.lastTs);
-        $("#alarms").innerHTML = list.length ? list.map(a => {
-          const c = SEV_C[a.sev];
-          return `<div class="alarm ${c}">
-            <span class="tag ${c}">${a.sev}</span>
-            <div class="a-body"><div class="a-msg">${esc(a.msg)}</div>
-              <div class="a-meta">${a.site} · ${a.cat} · ${esc(a.cause)} · 상태 ${a.status}</div></div>
-            <div class="a-act">${a.status==="active"?`<button type="button" onclick="ackAlarm('${a.key}')">접수</button>`:`<span class="muted">접수됨</span>`}</div>
-          </div>`;
-        }).join("") : `<div class="empty">활성 알람이 없습니다. ✓</div>`;
-
-        const t = now();
-        $("#pcount").textContent = `${POINTS.length} 포인트`;
-        $("#ptbody").innerHTML = POINTS.map(p => {
-          const s = st[p.key];
-          const on = s.ts && (t - s.ts)/1000 <= CFG.staleSec;
-          let worst = null;
-          for (const a of alarms.values()) if (a.msg.includes(p.name) && (!worst || RANK[a.sev]>RANK[worst])) worst = a.sev;
-          let pill = `<span class="pill ok">정상</span>`;
-          if (!on) pill = `<span class="pill u">미수신</span>`;
-          else if (worst) pill = `<span class="pill ${SEV_C[worst]}">${worst}</span>`;
-          const val = s.last!=null && s.ts ? `${s.last}${p.unit||""}` : "-";
-          return `<tr>
-            <td>${esc(p.name)}<div class="muted">${p.key}</div></td>
-            <td>${p.site}</td><td>${p.type==="power"?"전력":"유량"}</td>
-            <td><span class="dot ${on?"on":"off"}"></span>${on?"수신":"끊김"}</td>
-            <td>${val}</td><td>${pill}</td></tr>`;
+                <div class="chip crit"><span class="n">${x.cnt.긴급}</span>긴급</div>
+                <div class="chip warn"><span class="n">${x.cnt.경고}</span>경고</div>
+                <div class="chip info"><span class="n">${x.cnt.정보}</span>정보</div>
+                <div class="chip ok"><span class="n">${x.cnt.정상}</span>정상</div>
+              </div></div></div>`;
         }).join("");
       }
 
-      window.ackAlarm = (k) => { acked.add(k); const a = alarms.get(k); if (a) a.status = "ack"; render(); };
+      // ── 사업장별 상세 ──
+      let curSite="K5";
+      function renderSites(){
+        $("#siteTabs").innerHTML=SITES.map(s=>`<button type="button" class="${s.id===curSite?"on":""}" data-site="${s.id}">${s.name}</button>`).join("");
+        const m=siteMetrics().find(x=>x.id===curSite);
+        const eq=EQUIP.filter(e=>e.site===curSite);
+        const t=now();
+        const rows=eq.map(e=>{
+          const s=rt[e.id];const on=s.ts&&(t-s.ts)/1000<=STALE;
+          let worst=null;for(const a of alarms.values())if(a.equipId===e.id&&a.level!=="정상"&&(!worst||RANK[a.level]>RANK[worst]))worst=a.level;
+          const pill=!on?`<span class="lv crit">미수신</span>`:worst?`<span class="lv ${LVCLS[worst]}">${worst}</span>`:`<span class="lv ok">정상</span>`;
+          const val=on&&s.last!=null?`${s.last} ${e.unit}`:"-";
+          const cum=e.cum?`${r1(s.cum).toLocaleString()} ${e.unit.replace('/h','')}`:"-";
+          return `<tr><td>${esc(e.name)}<div class="muted">${e.id}</div></td><td>${e.kind}</td>
+            <td><span class="dot"></span>${on?"수신":"끊김"}</td><td>${val}</td><td>${cum}</td><td>${pill}</td></tr>`;
+        }).join("");
+        const salarms=[...alarms.values()].filter(a=>a.site===curSite&&a.level!=="정상").sort((a,b)=>RANK[b.level]-RANK[a.level]);
+        $("#siteDetail").innerHTML=`
+          <section class="summary" style="margin-bottom:18px">
+            <div class="kpi"><div class="label">수신율</div><div class="value" style="color:${m.recept>=95?"var(--ok)":"var(--crit)"}">${m.recept}<small>%</small></div></div>
+            <div class="kpi"><div class="label">데이터 정합성</div><div class="value">${m.integrity}<small>%</small></div></div>
+            <div class="kpi"><div class="label">SLA 준수율</div><div class="value">${m.sla}<small>%</small></div></div>
+            <div class="kpi crit"><div class="label">긴급</div><div class="value">${m.cnt.긴급}</div></div>
+            <div class="kpi warn"><div class="label">경고</div><div class="value">${m.cnt.경고}</div></div>
+            <div class="kpi info"><div class="label">정보</div><div class="value">${m.cnt.정보}</div></div>
+          </section>
+          <div class="site-grid" style="grid-template-columns:1.6fr 1fr">
+            <section class="panel"><div class="panel-head"><h2>설비/계측기 현황</h2><span class="muted">${eq.length} 대</span></div>
+              <div class="tscroll"><table><thead><tr><th>설비/계측기</th><th>종류</th><th>수신</th><th>현재값</th><th>누적값</th><th>상태</th></tr></thead><tbody>${rows}</tbody></table></div></section>
+            <section class="panel"><div class="panel-head"><h2>사업장 활성 알림</h2><span class="muted">${salarms.length} 건</span></div>
+              <div style="padding:10px;display:flex;flex-direction:column;gap:8px;max-height:420px;overflow:auto">
+                ${salarms.length?salarms.map(a=>`<div style="border-left:4px solid var(--${LVCLS[a.level]});background:var(--${LVCLS[a.level]}-bg);border-radius:8px;padding:10px 12px">
+                  <div style="display:flex;justify-content:space-between;gap:8px"><span class="lv ${LVCLS[a.level]}">${a.level}</span><span class="muted">${fmtDur(a.startTs)}</span></div>
+                  <div style="font-weight:600;font-size:13px;margin-top:5px">${esc(a.equip)} · ${esc(a.content)}</div>
+                  <div class="muted" style="margin-top:2px">${a.type} · ${esc(a.cause)}</div></div>`).join(""):`<div class="muted" style="text-align:center;padding:30px">활성 알림이 없습니다. ✓</div>`}
+              </div></section>
+          </div>`;
+      }
 
-      // ── 컨트롤 ──
-      $("#filter").addEventListener("click", e => {
-        const b = e.target.closest("button"); if (!b) return;
-        filter = b.dataset.s;
-        [...$("#filter").children].forEach(x => x.classList.toggle("on", x === b));
-        render();
-      });
-      let paused = false, timer = null;
-      $("#pauseBtn").addEventListener("click", () => {
-        paused = !paused;
-        $("#pauseBtn").textContent = paused ? "▶ 재개" : "⏸ 일시정지";
-        if (paused) clearInterval(timer); else timer = setInterval(tick, CFG.tickMs);
-      });
-      $("#themeBtn").addEventListener("click", () => {
-        const cur = document.documentElement.getAttribute("data-theme");
-        const sysDark = matchMedia("(prefers-color-scheme: dark)").matches;
-        const next = cur ? (cur === "dark" ? "light" : "dark") : (sysDark ? "light" : "dark");
-        document.documentElement.setAttribute("data-theme", next);
-      });
-      setInterval(() => { $("#clock").textContent = new Date().toLocaleString("ko-KR", { hour12:false }); }, 1000);
-      $("#clock").textContent = new Date().toLocaleString("ko-KR", { hour12:false });
+      // ── 알림 센터 ──
+      let acType="",acPage=1,acEquip="",acLevel="",acSel=null;
+      function acFiltered(){
+        return [...alarms.values()].filter(a=>
+          (!acType||a.type===acType)&&(!acEquip||a.equipId===acEquip)&&(!acLevel||a.level===acLevel))
+          .sort((a,b)=>RANK[b.level]-RANK[a.level]||b.startTs-a.startTs);
+      }
+      function renderAlarms(){
+        const all=[...alarms.values()];
+        const c={긴급:0,경고:0,정보:0,정상:0};let unack=0;
+        for(const a of all){c[a.level]++;if(a.level!=="정상"&&!a.ack)unack++;}
+        $("#acSummary").innerHTML=`
+          <div class="ac-card"><div class="l">전체 알림</div><div class="v">${all.length}<small> 건</small></div></div>
+          <div class="ac-card crit"><div class="l">긴급</div><div class="v">${c.긴급}<small> 건</small></div></div>
+          <div class="ac-card warn"><div class="l">경고</div><div class="v">${c.경고}<small> 건</small></div></div>
+          <div class="ac-card info"><div class="l">정보</div><div class="v">${c.정보}<small> 건</small></div></div>
+          <div class="ac-card ok"><div class="l">정상</div><div class="v">${c.정상}<small> 건</small></div></div>
+          <div class="ac-card unack"><div class="l">미확인 알림</div><div class="v">${unack}<small> 건</small></div></div>`;
+        const byType=ty=>all.filter(a=>a.type===ty).length;
+        $("#acTypeTabs").innerHTML=[["","전체",all.length],...TYPES.map(ty=>[ty,ty,byType(ty)])]
+          .map(([v,l,n])=>`<button type="button" class="${v===acType?"on":""}" data-type="${v}">${l} (${n})</button>`).join("");
+        // 설비 드롭다운
+        const fe=$("#fEquip");if(fe.options.length<=1){for(const e of EQUIP){const o=document.createElement("option");o.value=e.id;o.textContent=e.name;fe.appendChild(o);}}
 
-      // 초기 몇 틱 미리 채워 자연스러운 시작
-      for (let i=0;i<3;i++) tick();
-      timer = setInterval(tick, CFG.tickMs);
+        const list=acFiltered();const per=10;const pages=Math.max(1,Math.ceil(list.length/per));
+        if(acPage>pages)acPage=pages;
+        const rows=list.slice((acPage-1)*per,acPage*per).map(a=>{
+          const cl=LVCLS[a.level];const isNormal=a.level==="정상";
+          const ack=isNormal?`<span class="ackpill na">–</span>`:a.ack?`<span class="ackpill yes">확인됨</span>`:`<span class="ackpill no">미확인</span>`;
+          return `<tr class="clickable ${acSel===a.id?"sel":""}" data-id="${a.id}">
+            <td><span class="sicon ${cl}">${LVICON[a.level]}</span></td>
+            <td><span class="lv ${cl}">${a.level}</span></td>
+            <td class="tag-type">${a.type}</td>
+            <td>${esc(a.equip)}</td>
+            <td><span class="content-txt ${cl==="ok"?"":cl}">${esc(a.content)}</span></td>
+            <td>${fmtTime(a.startTs)}</td>
+            <td>${isNormal?"–":fmtDur(a.startTs)}</td>
+            <td>${ack}</td>
+            <td><button class="zoom" type="button" data-id="${a.id}">🔍</button></td></tr>`;
+        }).join("");
+        $("#acBody").innerHTML=rows||`<tr><td colspan="9" class="muted" style="text-align:center;padding:30px">조건에 맞는 알림이 없습니다.</td></tr>`;
+        $("#acTotal").textContent=`총 ${list.length}건`;
+        let pg="";pg+=`<button type="button" data-pg="prev">‹</button>`;
+        for(let i=1;i<=pages;i++)pg+=`<button type="button" class="${i===acPage?"on":""}" data-pg="${i}">${i}</button>`;
+        pg+=`<button type="button" data-pg="next">›</button>`;$("#acPages").innerHTML=pg;
+        renderDetail();
+      }
+      function renderDetail(){
+        const box=$("#acDetail");
+        const a=acSel?[...alarms.values()].find(x=>x.id===acSel):null;
+        if(!a){box.style.display="none";return;}
+        box.style.display="block";const cl=LVCLS[a.level];const s=rt[a.equipId];
+        const cum=a.equipId&&rt[a.equipId]?r1(rt[a.equipId].cum).toLocaleString():"-";
+        box.innerHTML=`
+          <div class="dhead"><div class="t"><span class="lv ${cl}">${a.level}</span> ${a.type} - ${esc(a.equip)}</div>
+            <button class="close" type="button" id="dClose">✕</button></div>
+          <div class="dgrid">
+            <div class="dcol"><h4>기본 정보</h4>
+              <div class="dfield"><span class="k">발생 시간</span><span class="v">${fmtTime(a.startTs)}</span></div>
+              <div class="dfield"><span class="k">지속 시간</span><span class="v">${a.level==="정상"?"–":fmtDur(a.startTs)}</span></div>
+              <div class="dfield"><span class="k">설비/계측기</span><span class="v">${esc(a.equip)}</span></div>
+              <div class="dfield"><span class="k">알림 유형</span><span class="v">${a.subtype||a.type}</span></div>
+              <div class="desc"><b>설명</b><br/>${esc(a.desc)}</div></div>
+            <div class="dcol"><h4>상세 분석</h4>
+              <div class="dfield"><span class="k">마지막 정상 수신</span><span class="v">${fmtTime(a.startTs-3*60000)}</span></div>
+              <div class="dfield"><span class="k">누적값 (마지막)</span><span class="v">${cum} ${a.unit?esc(a.unit.replace('/h','')):""}</span></div>
+              <div class="dfield"><span class="k">현재 값</span><span class="v">${s&&s.last!=null?esc(s.last+" "+a.unit):"-"}</span></div>
+              <div class="dfield"><span class="k">통신 상태</span><span class="v" style="color:${a.comm==="정상"?"var(--ok)":"var(--crit)"}">${esc(a.comm)}</span></div>
+              <div class="dfield"><span class="k">원인 추정</span><span class="v">${esc(a.cause)}</span></div></div>
+            <div class="dcol"><h4>추이 그래프</h4>
+              <canvas class="trend" id="trendCv" width="360" height="120"></canvas>
+              <div class="trend-cap">${esc(a.equip)} · 최근 ${(s&&s.hist.length)||0}개 계측값 (${esc(a.unit)})</div></div>
+            <div class="dcol"><h4>조치</h4>
+              <div class="act-btns">
+                <button class="primary" type="button" id="actDone">조치 완료</button>
+                <button class="ghost" type="button" id="actTemp">임시 조치</button>
+              </div>
+              ${a.action?`<div class="muted" style="margin-top:8px">현재 상태: <b style="color:var(--text)">${a.action}</b></div>`:""}
+              <textarea id="memo" placeholder="메모를 입력하세요...">${memos[a.id]?esc(memos[a.id]):""}</textarea>
+              <button class="ghost" type="button" id="memoSave" style="margin-top:6px;width:100%">저장</button></div>
+          </div>`;
+        drawTrend(a);
+        $("#dClose").onclick=()=>{acSel=null;renderDetail();renderAlarms();};
+        $("#actDone").onclick=()=>{a.action="조치 완료";a.ack=true;renderAlarms();};
+        $("#actTemp").onclick=()=>{a.action="임시 조치";a.ack=true;renderAlarms();};
+        $("#memoSave").onclick=()=>{memos[a.id]=$("#memo").value;$("#memoSave").textContent="저장됨 ✓";setTimeout(()=>{if($("#memoSave"))$("#memoSave").textContent="저장";},1200);};
+      }
+      function drawTrend(a){
+        const cv=$("#trendCv");if(!cv)return;const s=rt[a.equipId];const ctx=cv.getContext("2d");
+        const W=cv.width,H=cv.height;ctx.clearRect(0,0,W,H);
+        const data=(s&&s.hist.length)?s.hist:[0];
+        const mx=Math.max(...data,1),mn=Math.min(...data,0);const rng=(mx-mn)||1;
+        const col=getComputedStyle(document.documentElement).getPropertyValue("--"+(LVCLS[a.level]==="ok"?"info":LVCLS[a.level])).trim()||"#2f6fb3";
+        // grid
+        ctx.strokeStyle=getComputedStyle(document.documentElement).getPropertyValue("--line").trim();ctx.lineWidth=1;
+        for(let i=0;i<=3;i++){const y=6+(H-18)*i/3;ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+        // line + area
+        ctx.beginPath();data.forEach((v,i)=>{const x=data.length>1?i/(data.length-1)*W:0;const y=6+(H-18)*(1-(v-mn)/rng);i?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+        ctx.strokeStyle=col;ctx.lineWidth=2;ctx.stroke();
+        ctx.lineTo(W,H-12);ctx.lineTo(0,H-12);ctx.closePath();ctx.globalAlpha=.12;ctx.fillStyle=col;ctx.fill();ctx.globalAlpha=1;
+        // endpoint
+        const lv=data[data.length-1];const ex=W-2,ey=6+(H-18)*(1-(lv-mn)/rng);
+        ctx.beginPath();ctx.arc(Math.min(ex,W-3),ey,3,0,7);ctx.fillStyle=col;ctx.fill();
+        if(a.subtype==="데이터 끊김"){ctx.fillStyle=getComputedStyle(document.documentElement).getPropertyValue("--crit").trim();ctx.font="11px sans-serif";ctx.fillText("데이터 끊김",W-70,H-2);}
+      }
+
+      // ── 탭/이벤트 ──
+      let activeTab="overview";
+      function renderActive(){
+        if(activeTab==="overview")renderOverview();
+        else if(activeTab==="sites")renderSites();
+        else if(activeTab==="alarms")renderAlarms();
+      }
+      $("#tabnav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+        activeTab=b.dataset.tab;[...$("#tabnav").children].forEach(x=>x.classList.toggle("on",x===b));
+        document.querySelectorAll(".tabpage").forEach(p=>p.classList.toggle("on",p.id==="tab-"+activeTab));
+        renderActive();});
+      $("#siteTabs").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;curSite=b.dataset.site;renderSites();});
+      $("#acTypeTabs").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;acType=b.dataset.type;acPage=1;renderAlarms();});
+      $("#acBody").addEventListener("click",e=>{const b=e.target.closest("[data-id]");if(!b)return;acSel=b.dataset.id;renderAlarms();
+        $("#acDetail").scrollIntoView({behavior:"smooth",block:"nearest"});});
+      $("#acPages").addEventListener("click",e=>{const b=e.target.closest("[data-pg]");if(!b)return;const list=acFiltered();const pages=Math.max(1,Math.ceil(list.length/10));
+        const p=b.dataset.pg;if(p==="prev")acPage=Math.max(1,acPage-1);else if(p==="next")acPage=Math.min(pages,acPage+1);else acPage=+p;renderAlarms();});
+      $("#fEquip").addEventListener("change",e=>{acEquip=e.target.value;acPage=1;renderAlarms();});
+      $("#fLevel").addEventListener("change",e=>{acLevel=e.target.value;acPage=1;renderAlarms();});
+      $("#fReset").addEventListener("click",()=>{acType="";acEquip="";acLevel="";acPage=1;$("#fEquip").value="";$("#fLevel").value="";renderAlarms();});
+
+      let paused=false,timer=null;
+      $("#pauseBtn").addEventListener("click",()=>{paused=!paused;$("#pauseBtn").textContent=paused?"▶ 재개":"⏸ 일시정지";if(paused)clearInterval(timer);else timer=setInterval(tick,2000);});
+      $("#themeBtn").addEventListener("click",()=>{const cur=document.documentElement.getAttribute("data-theme");const sysDark=matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.setAttribute("data-theme",cur?(cur==="dark"?"light":"dark"):(sysDark?"light":"dark"));renderActive();});
+      function renderClock(){$("#clock").textContent=new Date().toLocaleString("ko-KR",{hour12:false});}
+
+      for(let i=0;i<4;i++)tick();
+      renderClock();renderActive();
+      timer=setInterval(tick,2000);
     </script>
   </body>
 </html>
