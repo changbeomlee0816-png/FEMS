@@ -191,12 +191,85 @@
       .spark{margin-top:10px;}
       #chartTip{position:fixed;z-index:60;pointer-events:none;background:var(--navy);color:#fff;font-size:12px;padding:6px 9px;border-radius:7px;box-shadow:0 4px 16px rgba(0,0,0,.35);display:none;line-height:1.5;white-space:nowrap;}
 
+      /* 로그인 */
+      .login-ov{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;
+        background:linear-gradient(135deg,var(--navy),var(--navy-2));padding:20px;}
+      .login-box{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:34px 30px;max-width:520px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35);}
+      .login-brand b{font-size:26px;font-weight:800;letter-spacing:1px;color:var(--text);}
+      .login-brand b .h{color:var(--blue);}
+      .login-title{font-size:16px;font-weight:700;margin-top:6px;}
+      .login-sub{font-size:13px;color:var(--muted);margin:6px 0 20px;}
+      .role-pick{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+      @media (max-width:520px){.role-pick{grid-template-columns:1fr;}}
+      .role-card{background:var(--panel-2);border:1px solid var(--line);border-radius:13px;padding:20px 14px;cursor:pointer;transition:border-color .15s,transform .1s;text-align:center;}
+      .role-card:hover{border-color:var(--blue);transform:translateY(-2px);}
+      .role-card:focus-visible{outline:2px solid var(--blue);outline-offset:2px;}
+      .role-card .ric{font-size:30px;}
+      .role-card .rt{font-size:15px;font-weight:700;margin-top:8px;}
+      .role-card .rd{font-size:12px;color:var(--muted);margin-top:5px;line-height:1.5;}
+      .login-note{font-size:11px;color:var(--muted);margin-top:18px;}
+      .role-badge{font-size:12px;font-weight:700;padding:4px 11px;border-radius:20px;background:rgba(255,255,255,.16);color:#fff;}
+      .role-badge.cust{background:var(--warn);}
+
+      /* 전국 지도 */
+      .map-row{display:grid;grid-template-columns:300px 1fr;gap:16px;margin-bottom:22px;}
+      @media (max-width:760px){.map-row{grid-template-columns:1fr;}}
+      .map-panel{padding:12px;display:flex;justify-content:center;align-items:center;min-height:300px;}
+      .kmap{width:100%;max-width:270px;height:auto;}
+      .kland{fill:color-mix(in srgb,var(--blue) 15%,var(--panel));stroke:var(--blue);stroke-width:1.3;stroke-linejoin:round;}
+      .mlbl{font-size:11px;fill:var(--text);font-weight:700;paint-order:stroke;stroke:var(--panel);stroke-width:3px;}
+      .mk circle{transition:opacity .3s;}
+      .pulse circle{animation:pulse 1.6s infinite;}
+      @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+      .map-side{padding:0;}
+      .msite{display:flex;align-items:center;gap:10px;padding:11px 14px;border-bottom:1px solid var(--line);cursor:pointer;}
+      .msite:last-child{border-bottom:0;}
+      .msite:hover{background:var(--panel-2);}
+      .msdot{width:11px;height:11px;border-radius:50%;flex:none;}
+
+      /* 내보내기 버튼 / 툴바 */
+      .exp-bar{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px;}
+      .btn2{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 12px;font-size:12.5px;cursor:pointer;font-weight:600;}
+      .btn2:hover{border-color:var(--blue);color:var(--blue);}
+      .btn2:focus-visible{outline:2px solid var(--blue);outline-offset:1px;}
+
+      /* 역할 뷰 (고객 = 읽기 전용) */
+      body.role-customer .op-only{display:none !important;}
+
+      @media print{
+        .topbar,.tabnav,.foot,.exp-bar .btn2,.filter,.ac-toolbar .ac-filters,.pager,.act-btns,textarea,.login-ov{display:none !important;}
+        .tabpage{display:none !important;} .tabpage.on{display:block !important;}
+        body{background:#fff;} .panel,.chart-card,.kpi,.ac-card,.site-card{break-inside:avoid;}
+      }
+
       .foot{text-align:center;color:var(--muted);font-size:12px;padding:22px;line-height:1.7;}
       .foot code{background:var(--th-bg);padding:2px 6px;border-radius:4px;}
       @media (prefers-reduced-motion:reduce){*{transition:none !important;}}
     </style>
   </head>
   <body>
+    <!-- 로그인 (데모: 역할 선택) -->
+    <div id="login" class="login-ov">
+      <div class="login-box">
+        <div class="login-brand"><b>YOU<span class="h">HOST</span></b></div>
+        <div class="login-title">FEMS 원격 모니터링 · 통합 관제</div>
+        <div class="login-sub">역할을 선택해 로그인하세요</div>
+        <div class="role-pick">
+          <button class="role-card" data-role="operator" type="button">
+            <div class="ric">🛡️</div>
+            <div class="rt">관제자 (운영)</div>
+            <div class="rd">전체 사업장 · 알림 조치 · 리포트 관리</div>
+          </button>
+          <button class="role-card" data-role="customer" type="button">
+            <div class="ric">🏭</div>
+            <div class="rt">고객사 (앰코테크놀로지)</div>
+            <div class="rd">담당 사업장 현황 조회 · 읽기 전용</div>
+          </button>
+        </div>
+        <div class="login-note">데모 로그인 · 별도 인증 없이 역할 뷰만 전환합니다</div>
+      </div>
+    </div>
+
     <header class="topbar">
       <div class="brand">
         <b>YOU<span class="h">HOST</span></b>
@@ -204,9 +277,11 @@
         <span class="demo-tag">데모 · 브라우저 내장 시뮬레이션</span>
       </div>
       <div class="topbar-right">
+        <span class="role-badge" id="roleBadge"></span>
         <span class="clock" id="clock"></span>
         <button class="btn" id="themeBtn" type="button">◐ 테마</button>
         <button class="btn" id="pauseBtn" type="button">⏸ 일시정지</button>
+        <button class="btn" id="logoutBtn" type="button">로그아웃</button>
       </div>
     </header>
 
@@ -222,6 +297,11 @@
       <!-- 통합 현황 -->
       <section class="tabpage on" id="tab-overview">
         <section class="summary" id="summary"></section>
+        <h2 class="section-title">전국 사업장 현황 <small>K5 송도 · K3 평택 · K4 광주 · (3차) 베트남 CEMS</small></h2>
+        <div class="map-row">
+          <div class="panel map-panel"><div id="mapWrap"></div></div>
+          <div class="panel map-side" id="mapSide"></div>
+        </div>
         <h2 class="section-title">사업장별 통합 현황 <small>K5 · K3 · K4 · 실시간 수신율·정합성·SLA</small></h2>
         <section class="site-grid" id="siteGrid"></section>
       </section>
@@ -246,6 +326,7 @@
                 <option value="정보">정보</option><option value="정상">정상</option>
               </select>
               <button class="link-btn" id="fReset" type="button">필터 초기화</button>
+              <button class="btn2" id="expAlarmCsv" type="button">⤓ CSV 내보내기</button>
             </div>
           </div>
           <div class="tscroll">
@@ -267,6 +348,13 @@
 
       <!-- 이력·리포트 -->
       <section class="tabpage" id="tab-reports">
+        <div class="exp-bar">
+          <h2 class="section-title" style="margin:0">이력 데이터 분석 <small>최근 24시간 / 7일</small></h2>
+          <div style="display:flex;gap:8px">
+            <button class="btn2" id="expRepCsv" type="button">⤓ Excel(CSV)</button>
+            <button class="btn2" id="expPdf" type="button">🖨 PDF로 저장</button>
+          </div>
+        </div>
         <section class="summary" id="repKpi"></section>
         <div class="rep-grid">
           <div class="chart-card">
@@ -534,6 +622,32 @@
               </div></div>`;
         }).join("");
         if(rep.spark)for(const s of SITES)drawSpark("spark-"+s.id,rep.spark[s.id]);
+        renderMap();
+      }
+
+      // ── 전국 사업장 지도 ──
+      const MAP_OUTLINE="52,83 39,107 52,142 45,166 32,182 45,222 39,253 32,301 39,325 58,356 97,340 123,321 169,313 201,293 227,261 237,222 234,174 231,127 214,95 195,63 166,16 130,40 78,55 58,71";
+      const MAP_SITES=[{id:"K5",x:55,y:112,label:"K5 송도"},{id:"K3",x:84,y:142,label:"K3 평택"},{id:"K4",x:68,y:288,label:"K4 광주"}];
+      function siteWorst(id){let w=null;for(const a of alarms.values())if(a.site===id&&a.level!=="정상"&&(!w||RANK[a.level]>RANK[w]))w=a.level;return w;}
+      function renderMap(){
+        if(!$("#mapWrap"))return;
+        const m=siteMetrics();
+        const markers=MAP_SITES.map(s=>{const w=siteWorst(s.id);const c=w?`var(--${LVCLS[w]})`:"var(--ok)";
+          return `<g class="mk ${w?"pulse":""}" data-site="${s.id}" style="cursor:pointer">
+            <circle cx="${s.x}" cy="${s.y}" r="7" fill="${c}" stroke="#fff" stroke-width="2"></circle>
+            <text x="${s.x+12}" y="${s.y+4}" class="mlbl">${s.label}</text></g>`;}).join("");
+        $("#mapWrap").innerHTML=`<svg viewBox="-14 -14 288 406" class="kmap" role="img" aria-label="전국 사업장 지도">
+          <polygon points="${MAP_OUTLINE}" class="kland"></polygon>${markers}</svg>`;
+        $("#mapWrap").querySelectorAll(".mk").forEach(g=>g.onclick=()=>{curSite=g.dataset.site;activeTab="sites";syncTabs();renderActive();});
+        $("#mapSide").innerHTML=`<div class="panel-head"><h2>사업장 상태</h2><span class="muted">클릭 시 상세</span></div>`+
+          m.map(x=>{const w=siteWorst(x.id);const c=w?LVCLS[w]:"ok";
+            return `<div class="msite" data-site="${x.id}"><span class="msdot" style="background:var(--${c})"></span>
+              <div style="flex:1"><b>${x.name}</b><div class="muted">수신율 ${x.recept}% · SLA ${x.sla}%</div></div>
+              <span class="lv ${c}">${w||"정상"}</span></div>`;}).join("")+
+          `<div class="msite" style="opacity:.6;cursor:default"><span class="msdot" style="background:var(--muted)"></span>
+            <div style="flex:1"><b>베트남 (CEMS)</b><div class="muted">3차 확장 예정</div></div>
+            <span class="lv" style="background:var(--track);color:var(--muted)">예정</span></div>`;
+        $("#mapSide").querySelectorAll(".msite[data-site]").forEach(el=>el.onclick=()=>{curSite=el.dataset.site;activeTab="sites";syncTabs();renderActive();});
       }
 
       // ── 사업장별 상세 ──
@@ -648,19 +762,21 @@
               <canvas class="trend" id="trendCv" width="360" height="120"></canvas>
               <div class="trend-cap">${esc(a.equip)} · 최근 ${(s&&s.hist.length)||0}개 계측값 (${esc(a.unit)})</div></div>
             <div class="dcol"><h4>조치</h4>
-              <div class="act-btns">
-                <button class="primary" type="button" id="actDone">조치 완료</button>
-                <button class="ghost" type="button" id="actTemp">임시 조치</button>
-              </div>
-              ${a.action?`<div class="muted" style="margin-top:8px">현재 상태: <b style="color:var(--text)">${a.action}</b></div>`:""}
-              <textarea id="memo" placeholder="메모를 입력하세요...">${memos[a.id]?esc(memos[a.id]):""}</textarea>
-              <button class="ghost" type="button" id="memoSave" style="margin-top:6px;width:100%">저장</button></div>
+              ${role==="customer"
+                ? `<div class="muted" style="line-height:1.7">고객 뷰 · 읽기 전용<br/>조치는 관제센터(유호스트)에서 수행합니다.${a.action?`<br/><br/>현재 상태: <b style="color:var(--text)">${a.action}</b>`:""}</div>`
+                : `<div class="act-btns op-only">
+                     <button class="primary" type="button" id="actDone">조치 완료</button>
+                     <button class="ghost" type="button" id="actTemp">임시 조치</button>
+                   </div>
+                   ${a.action?`<div class="muted" style="margin-top:8px">현재 상태: <b style="color:var(--text)">${a.action}</b></div>`:""}
+                   <textarea id="memo" class="op-only" placeholder="메모를 입력하세요...">${memos[a.id]?esc(memos[a.id]):""}</textarea>
+                   <button class="ghost op-only" type="button" id="memoSave" style="margin-top:6px;width:100%">저장</button>`}</div>
           </div>`;
         drawTrend(a);
         $("#dClose").onclick=()=>{acSel=null;renderDetail();renderAlarms();};
-        $("#actDone").onclick=()=>{a.action="조치 완료";a.ack=true;renderAlarms();};
-        $("#actTemp").onclick=()=>{a.action="임시 조치";a.ack=true;renderAlarms();};
-        $("#memoSave").onclick=()=>{memos[a.id]=$("#memo").value;$("#memoSave").textContent="저장됨 ✓";setTimeout(()=>{if($("#memoSave"))$("#memoSave").textContent="저장";},1200);};
+        if($("#actDone"))$("#actDone").onclick=()=>{a.action="조치 완료";a.ack=true;renderAlarms();};
+        if($("#actTemp"))$("#actTemp").onclick=()=>{a.action="임시 조치";a.ack=true;renderAlarms();};
+        if($("#memoSave"))$("#memoSave").onclick=()=>{memos[a.id]=$("#memo").value;$("#memoSave").textContent="저장됨 ✓";setTimeout(()=>{if($("#memoSave"))$("#memoSave").textContent="저장";},1200);};
       }
       function drawTrend(a){
         const cv=$("#trendCv");if(!cv)return;const s=rt[a.equipId];const ctx=cv.getContext("2d");
@@ -776,10 +892,39 @@
         else if(activeTab==="alarms")renderAlarms();
         else if(activeTab==="reports")renderReports();
       }
-      $("#tabnav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
-        activeTab=b.dataset.tab;[...$("#tabnav").children].forEach(x=>x.classList.toggle("on",x===b));
+      function syncTabs(){
+        [...$("#tabnav").children].forEach(x=>x.classList.toggle("on",x.dataset.tab===activeTab));
         document.querySelectorAll(".tabpage").forEach(p=>p.classList.toggle("on",p.id==="tab-"+activeTab));
-        renderActive();});
+      }
+      $("#tabnav").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;
+        activeTab=b.dataset.tab;syncTabs();renderActive();});
+
+      // ── 내보내기 (Excel/CSV · PDF) ──
+      function dstamp(){const d=new Date(),p=n=>String(n).padStart(2,"0");return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;}
+      function toCSV(rows){return "﻿"+rows.map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(",")).join("\r\n");}
+      function download(name,content,type){const b=new Blob([content],{type});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);}
+      function exportAlarmsCSV(){const rows=[["레벨","알림 유형","설비/계측기","내용","발생 시간","지속 시간","확인","원인 추정"]];
+        for(const a of acFiltered())rows.push([a.level,a.type,a.equip,a.content,fmtTime(a.startTs),a.level==="정상"?"-":fmtDur(a.startTs),a.level==="정상"?"-":(a.ack?"확인됨":"미확인"),a.cause]);
+        download(`FEMS_알림목록_${dstamp()}.csv`,toCSV(rows),"text/csv;charset=utf-8");}
+      function exportReportsCSV(){const rows=[["구분","항목","값"]];
+        rep.recept.forEach(p=>rows.push(["수신율 추이",p.h+":00",p.val+"%"]));
+        rep.sev.forEach(s=>rows.push(["시간대별 알림",s.h+":00",`긴급 ${s.긴급}/경고 ${s.경고}/정보 ${s.정보}`]));
+        rep.recur.forEach(r=>rows.push(["재발 상위 설비",r.name,r.n+"회"]));
+        rep.types.forEach(r=>rows.push(["유형별 분포",r.name,r.n+"건"]));
+        download(`FEMS_이력리포트_${dstamp()}.csv`,toCSV(rows),"text/csv;charset=utf-8");}
+      $("#expAlarmCsv").addEventListener("click",exportAlarmsCSV);
+      $("#expRepCsv").addEventListener("click",exportReportsCSV);
+      $("#expPdf").addEventListener("click",()=>window.print());
+
+      // ── 로그인 / 역할 권한 ──
+      let role=null;
+      function applyRole(r){
+        role=r;document.body.classList.toggle("role-customer",r==="customer");
+        const b=$("#roleBadge");b.textContent=r==="operator"?"관제자":"고객사 · 앰코";b.classList.toggle("cust",r==="customer");
+        $("#login").style.display="none";renderActive();
+      }
+      document.querySelectorAll(".role-card").forEach(c=>c.addEventListener("click",()=>applyRole(c.dataset.role)));
+      $("#logoutBtn").addEventListener("click",()=>{role=null;$("#login").style.display="flex";});
       $("#siteTabs").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;curSite=b.dataset.site;renderSites();});
       $("#acTypeTabs").addEventListener("click",e=>{const b=e.target.closest("button");if(!b)return;acType=b.dataset.type;acPage=1;renderAlarms();});
       $("#acBody").addEventListener("click",e=>{const b=e.target.closest("[data-id]");if(!b)return;acSel=b.dataset.id;renderAlarms();
