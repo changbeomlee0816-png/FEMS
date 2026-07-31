@@ -35,7 +35,7 @@ window.ScadaCanvas = (function () {
     return { value: r.value, ts, stale: !ts || Date.now() - ts > STALE_MS };
   }
 
-  /** 노드의 대표 표시값 (유효전력 우선) */
+  /** 노드의 대표 표시값 (상태 판정·차트용 — 유효전력 우선) */
   function primary(node) {
     const order = ['power', 'usage', 'current', 'voltage'];
     for (const role of order) {
@@ -45,6 +45,55 @@ window.ScadaCanvas = (function () {
       return { role, unit: d.unit || (role === 'power' ? 'kW' : ''), reading: r, name: d.name };
     }
     return null;
+  }
+
+  // ── 표시 항목 ──────────────────────────────────────────────────
+  // 도면이 카탈로그를 들고 다니므로(서버·브라우저 공통) 화면은 그것만 보면 된다.
+  // 예전에 저장된 도면(카탈로그 없음)을 위해 기본 4종만 여기에 남겨 둔다.
+  const FALLBACK_MEASURES = [
+    { id: 'usage', label: '유효전력량', short: '전력량', unit: 'kWh', group: '기본', default: true },
+    { id: 'current', label: '전류', short: '전류', unit: 'A', group: '기본', default: true },
+    { id: 'voltage', label: '전압', short: '전압', unit: 'V', group: '기본', default: true },
+    { id: 'pf', label: '역률', short: 'PF', unit: '%', group: '기본', default: true },
+  ];
+
+  function catalog() {
+    return (diagram && diagram.measures && diagram.measures.length) ? diagram.measures : FALLBACK_MEASURES;
+  }
+
+  function measureById(id) {
+    return catalog().filter((m) => m.id === id)[0] || null;
+  }
+
+  /** 지금 노드마다 그려야 할 계측 항목 (없으면 카탈로그의 기본 항목) */
+  function displayItems() {
+    const wanted = (diagram && diagram.displayItems) || catalog().filter((m) => m.default).map((m) => m.id);
+    return wanted.map(measureById).filter(Boolean);
+  }
+
+  /**
+   * 값·단위 표기 — 22,967 V 보다 22.97 kV 가 관제 관례에 맞다.
+   * (계측 원값은 그대로 두고 표기만 바꾼다)
+   */
+  function scaleValue(value, unit) {
+    if (unit === 'V' && Math.abs(value) >= 1000) return { value: value / 1000, unit: 'kV' };
+    if (unit === 'kWh' && Math.abs(value) >= 100000) return { value: value / 1000, unit: 'MWh' };
+    return { value, unit };
+  }
+
+  /** 항목 하나의 현재 값 */
+  function valueOf(node, item) {
+    const d = node.display && node.display[item.id];
+    if (!d) return { unit: item.unit, reading: null, linked: false };
+    return { unit: d.unit || item.unit, reading: reading(d.key), linked: true, name: d.name };
+  }
+
+  /** 표시 항목 수에 따른 박스 높이 — 서버 diagram.js 와 같은 규칙 */
+  function heightFor(count) {
+    const L = (diagram && diagram.layout) || {};
+    const cols = L.VAL_COLS || 2;
+    const rows = Math.max(1, Math.ceil((count || 1) / cols));
+    return (L.HEAD_H || 40) + rows * (L.VAL_ROW_H || 15) + (L.VAL_PAD || 8);
   }
 
   /** 노드 상태 — 색상은 상태에만 쓰고, 항상 텍스트와 함께 표시한다. */
@@ -145,8 +194,10 @@ window.ScadaCanvas = (function () {
       .filter(Boolean)
       .join(' ');
 
+    const L = diagram.layout || {};
+    const headH = L.HEAD_H || 40;
     const symCx = node.x + 25;
-    const symCy = node.y + node.h / 2;
+    const symCy = node.y + Math.min(node.h / 2, headH / 2 + 10);
     const textX = node.x + 46;
 
     const sub = node.deviceKind
@@ -157,13 +208,34 @@ window.ScadaCanvas = (function () {
           ? `#${node.device.deviceId}/CH${node.channel}`
           : Sym.LABELS[node.symbol] || '';
 
+    // ── 계측값 격자 ─────────────────────────────────────────────
+    // 기본은 유효전력량·전류·전압·역률 4종(2열 2행). "표시 항목" 메뉴에서
+    // 늘리면 줄 수만큼 박스가 높아진다.
+    const items = displayItems();
+    const cols = L.VAL_COLS || 2;
+    const rowH = L.VAL_ROW_H || 15;
+    const gridX = node.x + 8;
+    const gridW = node.w - 16;
+    const cellW = gridW / cols;
     let valueLine = '';
-    if (p) {
-      const stale = !p.reading || p.reading.stale;
-      const text = stale ? '-- ' + (p.unit || '') : `${fmt(p.reading.value)} ${p.unit || ''}`;
-      valueLine = `<text class="nd-val${stale ? ' is-stale' : ''}" x="${textX}" y="${node.y + 50}" text-anchor="start">${esc(text)}</text>`;
+    if (!node.points || !node.points.length) {
+      valueLine = `<text class="nd-sub" x="${textX}" y="${node.y + headH + 11}" text-anchor="start">계측 미연결</text>`;
     } else {
-      valueLine = `<text class="nd-sub" x="${textX}" y="${node.y + 50}" text-anchor="start">계측 미연결</text>`;
+      valueLine = items
+        .map((item, i) => {
+          const cx0 = gridX + (i % cols) * cellW;
+          const cy = node.y + headH + Math.floor(i / cols) * rowH + 11;
+          const v = valueOf(node, item);
+          const stale = !v.reading || v.reading.stale;
+          const shown = stale ? { value: null, unit: v.unit } : scaleValue(v.reading.value, v.unit);
+          const num = !v.linked ? '·' : stale ? '--' : fmt(shown.value);
+          const unit = shown.unit ? ` ${shown.unit}` : '';
+          return (
+            `<text class="nd-vk" x="${cx0}" y="${cy}">${esc(item.short || item.label)}</text>` +
+            `<text class="nd-val${stale ? ' is-stale' : ''}" x="${cx0 + cellW - 9}" y="${cy}" text-anchor="end">${esc(num)}<tspan class="nd-vu">${esc(unit)}</tspan></text>`
+          );
+        })
+        .join('');
     }
 
     // ── v2 표기 ────────────────────────────────────────────────
@@ -211,8 +283,8 @@ window.ScadaCanvas = (function () {
         ${extras}
         <rect class="nd-box" x="${node.x}" y="${node.y}" width="${node.w}" height="${node.h}" />
         ${Sym.draw(node.symbol, symCx, symCy, 13)}
-        <text class="nd-name" x="${textX}" y="${node.y + 21}" text-anchor="start">${esc(clip(node.name, 9))}</text>
-        <text class="nd-sub" x="${textX}" y="${node.y + 34}" text-anchor="start">${esc(clip(sub, 13))}</text>
+        <text class="nd-name" x="${textX}" y="${node.y + 21}" text-anchor="start">${esc(clip(node.name, 11))}</text>
+        <text class="nd-sub" x="${textX}" y="${node.y + 34}" text-anchor="start">${esc(clip(sub, 15))}</text>
         ${valueLine}
         <title>${esc(tip)}</title>
       </g>`;
@@ -403,8 +475,11 @@ window.ScadaCanvas = (function () {
     .nd.is-inactive{opacity:.48}
     .nd-name{fill:#eef3fb;font-size:11.5px;font-weight:600}
     .nd-sub{fill:#6d80a6;font-size:9.5px}
-    .nd-val{fill:#35d0a5;font-size:10.5px;font-weight:700}
+    .nd-val{fill:#35d0a5;font-size:9.6px;font-weight:700}
     .nd-val.is-stale{fill:#5b6b8c}
+    .nd-vk{fill:#7488ad;font-size:8px}
+    .nd-vu{fill:#7fb9a4;font-size:7.6px;font-weight:400}
+    .nd-val.is-stale .nd-vu{fill:#4d5c79}
     .nd-sym{fill:none;stroke:#8fa6d4;stroke-width:1.6}
     .nd.is-main .nd-sym{stroke:#ffd479}
     .nd-sym-fill{fill:#8fa6d4}
@@ -463,6 +538,38 @@ window.ScadaCanvas = (function () {
     render();
   }
 
+  /**
+   * 표시 항목 변경 — 서버 diagram.applyDisplayItems() 와 같은 규칙으로
+   * 박스 높이·레인 간격을 다시 잡는다. 줄 수가 그대로면 배치는 건드리지 않는다.
+   */
+  function setDisplayItems(ids) {
+    if (!diagram) return [];
+    const wanted = (ids || []).filter((id) => measureById(id));
+    diagram.displayItems = wanted.length ? wanted : catalog().filter((m) => m.default).map((m) => m.id);
+
+    const L = diagram.layout;
+    const h = heightFor(diagram.displayItems.length);
+    if (h !== L.NODE_H) {
+      const lane = Math.max(205, h + 127);
+      const top = L.LANE_TOP;
+      let maxDepth = 1;
+      for (const n of diagram.nodes) {
+        n.h = h;
+        n.y = top + ((n.depth || 1) - 1) * lane;
+        maxDepth = Math.max(maxDepth, n.depth || 1);
+      }
+      L.NODE_H = h;
+      L.LANE_H = lane;
+      L.maxDepth = maxDepth;
+      L.canvasH = top + maxDepth * lane + (L.PAD_BOTTOM || 120);
+      render();
+      fit();
+    } else {
+      render();
+    }
+    return diagram.displayItems;
+  }
+
   /** 구역 필터 — 선택 구역 외 설비는 흐리게 (계통 전체 맥락은 유지) */
   function setZone(code) {
     zoneFilter = code || '';
@@ -479,6 +586,11 @@ window.ScadaCanvas = (function () {
     autoLayout,
     select,
     setZone,
+    setDisplayItems,
+    displayItems,
+    catalog,
+    measure: measureById,
+    scaleValue,
     toSvgString,
     statusOf,
     primary,

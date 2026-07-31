@@ -197,6 +197,91 @@ const COOLING_TYPES = ['ONAN', 'ONAF', 'OFAF', 'ODAF', 'AN', 'AF', 'OA', 'FA', '
 /** 수전 회선 운전구분 */
 const FEED_MODES = ['상시', '예비', '상시/예비', '병렬'];
 
+
+// ── 계측 항목 카탈로그 ─────────────────────────────────────────────
+// 도면의 각 포인트(설비)에 표시할 수 있는 계측 항목.
+// 기본 4종은 관제에서 항상 보는 값이라 처음부터 켜져 있고,
+// 나머지는 화면의 "표시 항목" 메뉴에서 켜고 끈다.
+const MEASURE_CATALOG = [
+  // 기본 — 유효전력량 · 전류 · 전압 · 역률
+  { id: 'usage', label: '유효전력량', unit: 'kWh', short: '전력량', group: '기본', default: true },
+  { id: 'current', label: '전류', unit: 'A', short: '전류', group: '기본', default: true },
+  { id: 'voltage', label: '전압', unit: 'V', short: '전압', group: '기본', default: true },
+  { id: 'pf', label: '역률', unit: '%', short: 'PF', group: '기본', default: true },
+
+  // 전력 — 순시값
+  { id: 'power', label: '유효전력', unit: 'kW', short: '전력', group: '전력' },
+  { id: 'reactive', label: '무효전력', unit: 'kVAR', short: '무효', group: '전력' },
+  { id: 'apparent', label: '피상전력', unit: 'kVA', short: '피상', group: '전력' },
+  { id: 'frequency', label: '주파수', unit: 'Hz', short: '주파수', group: '전력' },
+
+  // 전력품질
+  { id: 'thd', label: 'THD', unit: '%', short: 'THD', group: '전력품질' },
+  { id: 'unbalance', label: '불평형률', unit: '%', short: '불평형', group: '전력품질' },
+  { id: 'reactiveEnergy', label: '무효전력량', unit: 'kVARh', short: '무효량', group: '전력품질' },
+
+  // 설비 운전
+  { id: 'energy', label: '에너지', unit: 'kWh', short: '에너지', group: '설비' },
+  { id: 'runtime', label: '가동시간', unit: 'h', short: '가동', group: '설비' },
+  { id: 'efficiency', label: '효율', unit: '%', short: '효율', group: '설비' },
+  { id: 'status', label: '운전상태', unit: '', short: '상태', group: '설비' },
+
+  // 타 에너지원 — 열·가스·용수 계측기를 붙인 경우
+  { id: 'heat', label: '열량', unit: 'GJ', short: '열량', group: '타에너지' },
+  { id: 'flow', label: '유량', unit: 'm3/h', short: '유량', group: '타에너지' },
+  { id: 'gas', label: '가스', unit: 'Nm3', short: '가스', group: '타에너지' },
+  { id: 'steam', label: '증기', unit: 't/h', short: '증기', group: '타에너지' },
+  { id: 'water', label: '용수', unit: 'm3', short: '용수', group: '타에너지' },
+
+  // 환경
+  { id: 'temperature', label: '온도', unit: '\u2103', short: '온도', group: '환경' },
+  { id: 'humidity', label: '습도', unit: '%', short: '습도', group: '환경' },
+  { id: 'pressure', label: '압력', unit: 'bar', short: '압력', group: '환경' },
+  { id: 'irradiance', label: '일사량', unit: 'W/m2', short: '일사', group: '환경' },
+];
+
+const MEASURE_BY_ID = Object.fromEntries(MEASURE_CATALOG.map((m) => [m.id, m]));
+
+/** 처음부터 켜져 있는 표시 항목 — 유효전력량 · 전류 · 전압 · 역률 */
+const DEFAULT_DISPLAY_ITEMS = MEASURE_CATALOG.filter((m) => m.default).map((m) => m.id);
+
+/**
+ * 포인트명으로 계측 항목을 추정한다.
+ * 4)장비속성의 매핑 열(O 표시)이 없는 포인트도 이름만 보고 분류해서
+ * "표시 항목" 메뉴에 올릴 수 있게 하기 위함이다.
+ */
+const NAME_HINTS = [
+  [/유효전력량|적산전력량|사용량/, 'usage'],
+  [/무효전력량/, 'reactiveEnergy'],
+  [/유효전력/, 'power'],
+  [/무효전력/, 'reactive'],
+  [/피상전력/, 'apparent'],
+  [/역률/, 'pf'],
+  [/주파수/, 'frequency'],
+  [/전류/, 'current'],
+  [/전압/, 'voltage'],
+  [/불평형/, 'unbalance'],
+  [/thd|고조파/i, 'thd'],
+  [/가동시간|운전시간/, 'runtime'],
+  [/효율/, 'efficiency'],
+  [/운전상태|부하운전|무부하/, 'status'],
+  [/열량/, 'heat'],
+  [/유량/, 'flow'],
+  [/가스/, 'gas'],
+  [/증기/, 'steam'],
+  [/용수|급수/, 'water'],
+  [/온도/, 'temperature'],
+  [/습도/, 'humidity'],
+  [/압력/, 'pressure'],
+  [/일사/, 'irradiance'],
+];
+
+function measureFromName(name) {
+  const n = String(name || '');
+  for (const [re, id] of NAME_HINTS) if (re.test(n)) return id;
+  return null;
+}
+
 /** 문자열 정규화: 공백/하이픈 제거 + 소문자. 'Accura 2300' 과 'Accura2300' 을 같은 값으로 본다. */
 function normalizeKey(v) {
   return String(v == null ? '' : v).replace(/[\s_\-.]/g, '').toLowerCase();
@@ -254,6 +339,10 @@ module.exports = {
   VECTOR_GROUPS,
   COOLING_TYPES,
   FEED_MODES,
+  MEASURE_CATALOG,
+  MEASURE_BY_ID,
+  DEFAULT_DISPLAY_ITEMS,
+  measureFromName,
   normalizeKey,
   closestMatch,
 };

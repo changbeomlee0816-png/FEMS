@@ -205,12 +205,15 @@ router.post('/projects/:id/demo-tick', (req, res) => {
         const hot = node && node.kind === 'load' && (node.systemId || 0) % 4 === 0 ? 1.9 : 1;
         const base = (rated ? rated * 0.72 : node && node.kind === 'main' ? Number(p.model.site.contractPower) || 800 : 45) * hot;
     const wave = 0.75 + 0.25 * Math.sin(t + (pt.deviceId || 1) * 0.7 + (pt.channel || 1) * 0.3);
+    // 전압은 그 계통의 실제 전압에서 만들고, 전류는 P = √3·V·I·cosφ 로 역산한다.
+    const volt = node && node.voltage != null ? node.voltage * 1000 : 380;
+    const pfPct = 92 + Math.sin(t * 0.6) * 5; // 역률은 % 단위 (배율 100 적용 후 값)
     const byRole = {
       power: base * wave,
       usage: base * wave * 0.25,
-      current: base * wave * 1.4,
-      voltage: 380 + Math.sin(t) * 3,
-      pf: 92 + Math.sin(t * 0.6) * 5, // 역률은 % 단위 (배율 100 적용 후 값)
+      current: (base * wave * 1000) / (volt * 1.732 * (pfPct / 100)),
+      voltage: volt * (1 + Math.sin(t) * 0.008),
+      pf: pfPct,
       reactive: base * wave * 0.3,
       energy: base * wave * 0.25,
       runtime: 1200 + (t % 100),

@@ -245,12 +245,16 @@ window.ScadaLocalApi = (function (req) {
         const hot = node && node.kind === 'load' && (node.systemId || 0) % 4 === 0 ? 1.9 : 1;
         const base = (rated ? rated * 0.72 : node && node.kind === 'main' ? Number(p.model.site.contractPower) || 800 : 45) * hot;
         const wave = 0.75 + 0.25 * Math.sin(t + (pt.deviceId || 1) * 0.7 + (pt.channel || 1) * 0.3);
+        // 전압은 그 계통의 실제 전압에서 만들고, 전류는 P = √3·V·I·cosφ 로 역산한다.
+        // (22.9kV 수전점에 380V 가 찍혀 있으면 데모라도 화면이 거짓말을 한다)
+        const volt = node && node.voltage != null ? node.voltage * 1000 : 380;
+        const pf = 92 + Math.sin(t * 0.6) * 5;
         const byRole = {
           power: base * wave,
           usage: base * wave * 0.25,
-          current: base * wave * 1.4,
-          voltage: 380 + Math.sin(t) * 3,
-          pf: 92 + Math.sin(t * 0.6) * 5,
+          current: (base * wave * 1000) / (volt * 1.732 * (pf / 100)),
+          voltage: volt * (1 + Math.sin(t) * 0.008),
+          pf,
           reactive: base * wave * 0.3,
           energy: base * wave * 0.25,
           runtime: 1200 + (t % 100),

@@ -25,6 +25,7 @@
     'inspector', 'inspectorBody', 'addMainBtn', 'addLoadBtn', 'deleteNodeBtn',
     'zoomInBtn', 'zoomOutBtn', 'fitBtn', 'relayoutBtn', 'liveChk', 'demoBtn',
     'openExampleBtn', 'zoneBar', 'alarmBar', 'alarmBody', 'alarmCounts', 'ackAllBtn',
+    'measureBtn', 'measureMenu', 'measureBody', 'measureCount', 'measureResetBtn', 'measureCloseBtn',
     'exportPdfBtn', 'exportSvgBtn', 'exportJsonBtn', 'saveBtn', 'loadChart', 'groupChart', 'siteInfo',
     'facilityBody', 'facilityCount', 'pointsBody', 'pointsCount', 'publishBtn', 'toast',
   ].forEach((id) => (els[id] = $(id)));
@@ -169,6 +170,7 @@
     state.acked = new Set();
     Canvas.setDiagram(project.diagram);
     renderZoneBar();
+    renderMeasureMenu();
     renderMainStrip();
     renderLegend();
     renderInspector(null);
@@ -199,21 +201,23 @@
 
     els.mainStrip.innerHTML = mains
       .map((m) => {
-        const rows = [
-          ['유효전력', 'power', 'kW'],
-          ['전류', 'current', 'A'],
-          ['전압', 'voltage', 'V'],
-          ['역률', 'pf', '%'],
-          ['사용량', 'usage', 'kWh'],
-        ]
-          .map(([label, role, unit]) => {
-            const d = m.display && m.display[role];
+        // KPI 스트립도 도면과 같은 "표시 항목" 을 따른다.
+        // 다만 수전점은 순시 전력이 관제의 핵심이라 유효전력을 항상 앞에 세운다.
+        const items = Canvas.displayItems();
+        const withPower = items.some((it) => it.id === 'power')
+          ? items
+          : [Canvas.measure('power')].filter(Boolean).concat(items);
+        const rows = withPower
+          .map((item) => {
+            const d = m.display && m.display[item.id];
             const r = d ? Canvas.reading(d.key) : null;
             const stale = !r || r.stale;
+            const unit = (d && d.unit) || item.unit;
+            const shown = stale ? { value: null, unit } : Canvas.scaleValue(r.value, unit);
             return `<div class="sc-mrow${stale ? ' is-stale' : ''}">
-                <span class="k">${label}</span>
-                <span class="v">${stale ? '--' : fmt(r.value)}</span>
-                <span class="u">${esc((d && d.unit) || unit)}</span>
+                <span class="k">${esc(item.label)}</span>
+                <span class="v">${stale ? '--' : fmt(shown.value)}</span>
+                <span class="u">${esc(shown.unit)}</span>
               </div>`;
           })
           .join('');
@@ -229,7 +233,7 @@
               <span class="sc-maincard-name">${esc(m.name)}</span>
               <span class="sc-maincard-tag">${m.device ? `#${m.device.deviceId}/CH${m.channel}` : '계측 미연결'}</span>
             </div>
-            <div class="sc-maincard-rows">${rows}</div>
+            <div class="sc-maincard-rows${withPower.length > 6 ? ' is-dense' : ''}">${rows}</div>
             <div class="sc-meter">
               <div class="sc-meter-bar"><div class="sc-meter-fill${meterCls}" style="width:${Math.min(100, pct)}%"></div></div>
               <div class="sc-meter-cap">
@@ -261,6 +265,68 @@
       zones
         .map((z) => `<button data-zone="${esc(z.code)}" class="${state.zone === z.code ? 'active' : ''}" title="${esc(z.note || '')}">${esc(z.name)} <b>${count(z.code)}</b></button>`)
         .join('');
+  }
+
+  // ── 표시 항목 메뉴 ─────────────────────────────────────────────
+  /**
+   * 각 포인트(설비 박스)에 무엇을 띄울지 고른다.
+   * 기본은 유효전력량·전류·전압·역률 4종이고, 전력품질·설비운전·타에너지·환경
+   * 계측 항목을 필요한 만큼 켜서 붙인다. 항목 수가 늘면 박스가 그만큼 높아진다.
+   */
+  function renderMeasureMenu() {
+    const d = state.project && state.project.diagram;
+    if (!d) return;
+    const on = new Set(Canvas.displayItems().map((m) => m.id));
+    els.measureCount.textContent = String(on.size);
+
+    // 항목별로 "값을 실제로 가진 설비 수" 를 함께 보여 준다 —
+    // 켜 봐야 빈칸만 나오는 항목을 미리 알 수 있다.
+    const have = {};
+    for (const n of d.nodes) for (const id of Object.keys(n.display || {})) have[id] = (have[id] || 0) + 1;
+
+    const groups = [];
+    for (const m of Canvas.catalog()) {
+      let g = groups.filter((x) => x.name === m.group)[0];
+      if (!g) groups.push((g = { name: m.group, items: [] }));
+      g.items.push(m);
+    }
+
+    els.measureBody.innerHTML = groups
+      .map(
+        (g) => `<div class="sc-measure-group">
+            <h4>${esc(g.name)}</h4>
+            <div class="sc-measure-list">
+              ${g.items
+                .map((m) => {
+                  const n = have[m.id] || 0;
+                  return `<label class="sc-measure-item${n ? '' : ' is-empty'}" title="${esc(m.label)} (${esc(m.unit || '-')})">
+                      <input type="checkbox" data-measure="${esc(m.id)}"${on.has(m.id) ? ' checked' : ''} />
+                      <span>${esc(m.label)}</span>
+                      <span class="mi-unit">${esc(m.unit || '')}</span>
+                      <span class="mi-have">${n ? n + '개' : '값 없음'}</span>
+                    </label>`;
+                })
+                .join('')}
+            </div>
+          </div>`
+      )
+      .join('');
+  }
+
+  /** 체크 상태 → 도면에 반영 (박스 높이·레인 간격까지 다시 잡힌다) */
+  function applyMeasureMenu() {
+    const ids = [...els.measureBody.querySelectorAll('input[data-measure]:checked')].map((i) => i.dataset.measure);
+    Canvas.setDisplayItems(ids);
+    renderMeasureMenu();
+    renderMainStrip();
+    markDirty();
+  }
+
+  function toggleMeasureMenu(show) {
+    const open = show == null ? els.measureMenu.hidden : show;
+    els.measureMenu.hidden = !open;
+    els.measureBtn.setAttribute('aria-expanded', String(open));
+    if (open) renderMeasureMenu();
   }
 
   /** 구역 선택 → 해당 구역 설비만 남기고 나머지는 흐리게 */
@@ -321,12 +387,18 @@
       .map((k) => `<option value="${k}"${k === node.symbol ? ' selected' : ''}>${esc(Sym.LABELS[k] || k)}</option>`)
       .join('');
 
+    // 지금 도면 박스에 올라가 있는 포인트에는 표시를 해 둔다
+    const shownKeys = new Set(
+      Canvas.displayItems()
+        .map((it) => node.display && node.display[it.id] && node.display[it.id].key)
+        .filter(Boolean)
+    );
     const pointRows = (node.points || [])
       .map((p) => {
         const r = Canvas.reading(p.key);
         const stale = !r || r.stale;
-        return `<li>
-            <span class="pn">${esc(p.name)}</span>
+        return `<li${shownKeys.has(p.key) ? ' class="is-shown"' : ''}>
+            <span class="pn">${esc(p.name)}${shownKeys.has(p.key) ? '<i class="pn-on" title="도면에 표시 중">도면</i>' : ''}</span>
             <span class="pv${stale ? ' is-stale' : ''}">${stale ? '--' : fmt(r.value)} ${esc(p.unit || '')}</span>
           </li>`;
       })
@@ -678,6 +750,30 @@
         btn.disabled = false;
         btn.textContent = label;
       }
+    });
+
+    // 표시 항목 메뉴
+    els.measureBtn.addEventListener('click', (e) => {
+      if (!state.project) return toast('먼저 도면을 여세요.', 'error');
+      e.stopPropagation();
+      toggleMeasureMenu();
+    });
+    els.measureMenu.addEventListener('click', (e) => e.stopPropagation());
+    els.measureBody.addEventListener('change', (e) => {
+      if (e.target.matches('input[data-measure]')) applyMeasureMenu();
+    });
+    els.measureResetBtn.addEventListener('click', () => {
+      Canvas.setDisplayItems(Canvas.catalog().filter((m) => m.default).map((m) => m.id));
+      renderMeasureMenu();
+      renderMainStrip();
+      markDirty();
+    });
+    els.measureCloseBtn.addEventListener('click', () => toggleMeasureMenu(false));
+    document.addEventListener('click', () => {
+      if (!els.measureMenu.hidden) toggleMeasureMenu(false);
+    });
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !els.measureMenu.hidden) toggleMeasureMenu(false);
     });
 
     // 구역 탭

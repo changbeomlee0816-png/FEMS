@@ -12,12 +12,33 @@ const codes = require('./codes');
  *  - 나중에 FEMS 본 시스템이 같은 JSON 을 받아 자기 화면에 그릴 수 있다.
  */
 
+/** 노드 박스 안쪽 치수 — 계측값을 몇 줄 넣느냐에 따라 높이가 달라진다 */
+const HEAD_H = 40;    // 이름 + 부제 영역
+const VAL_ROW_H = 15; // 계측값 한 줄
+const VAL_COLS = 2;   // 계측값은 2열로 배치한다
+const VAL_PAD = 8;    // 마지막 줄 아래 여백
+
+/** 표시 항목 개수 → 노드 박스 높이 */
+function nodeHeight(count) {
+  const rows = Math.max(1, Math.ceil((count || 1) / VAL_COLS));
+  return HEAD_H + rows * VAL_ROW_H + VAL_PAD;
+}
+
+/** 박스가 커지면 레인 간격도 같이 벌린다 (모선·차단기 자리를 확보) */
+function laneHeight(nodeH) {
+  return Math.max(205, nodeH + 127);
+}
+
 const LAYOUT = {
-  NODE_W: 150,
-  NODE_H: 62,
-  LEAF_W: 186,
+  NODE_W: 172,
+  NODE_H: nodeHeight(codes.DEFAULT_DISPLAY_ITEMS.length),
+  HEAD_H,
+  VAL_ROW_H,
+  VAL_COLS,
+  VAL_PAD,
+  LEAF_W: 208,
   LANE_TOP: 210, // 1레벨(한전 메인) 박스 상단 — 위쪽에 수전/MOF 심볼 자리를 비워둔다
-  LANE_H: 205,
+  LANE_H: laneHeight(nodeHeight(codes.DEFAULT_DISPLAY_ITEMS.length)),
   MAIN_GAP: 150,
   PAD_X: 70,
   PAD_BOTTOM: 120,
@@ -70,16 +91,73 @@ function transformerLabel(tr) {
   return { line1, line2 };
 }
 
-/** 표시용 주요 계측 포인트 (도면 위 값 칩) */
+/** 노드 상태 판정·차트에 쓰는 대표 역할 (표시 항목과는 별개) */
 const DISPLAY_ROLES = ['power', 'current', 'voltage', 'pf', 'usage'];
 
-function primaryPoints(points) {
+/**
+ * 노드에 붙은 계측 포인트를 "계측 항목(measure)" 별로 정리한다.
+ *
+ * 1순위는 4)장비속성의 매핑 열(O 표시)로 들어온 role,
+ * 2순위는 포인트명 추정(measureFromName)이다. 그래서 매핑 열이 없는
+ * 열량·유량·온도 같은 포인트도 도면에 올릴 수 있다.
+ *
+ * 결과 키는 계측 항목 id 이고, role 이름과 같은 체계라 기존 코드
+ * (`display.power` 등)는 그대로 동작한다.
+ */
+function resolveMeasures(points) {
   const out = {};
-  for (const role of DISPLAY_ROLES) {
-    const hit = points.find((p) => p.roles.includes(role));
-    if (hit) out[role] = { key: hit.key, unit: hit.unit, name: hit.name };
+  // 1) 매핑 열로 지정된 역할
+  for (const p of points) {
+    for (const role of p.roles || []) {
+      if (codes.MEASURE_BY_ID[role] && !out[role]) out[role] = { key: p.key, unit: p.unit, name: p.name };
+    }
+  }
+  // 2) 이름으로 추정 (이미 채워진 항목은 건드리지 않는다)
+  for (const p of points) {
+    const id = codes.measureFromName(p.name);
+    if (id && !out[id]) out[id] = { key: p.key, unit: p.unit, name: p.name };
   }
   return out;
+}
+
+/** 도면에 표시할 계측 항목 목록 정리 — 미지의 id 는 버리고, 비면 기본값 */
+function normalizeDisplayItems(items) {
+  const seen = new Set();
+  const use = [];
+  for (const id of items || []) {
+    if (codes.MEASURE_BY_ID[id] && !seen.has(id)) {
+      seen.add(id);
+      use.push(id);
+    }
+  }
+  return use.length ? use : codes.DEFAULT_DISPLAY_ITEMS.slice();
+}
+
+/**
+ * 표시 항목 변경 적용 — 항목 수가 바뀌면 박스 높이와 레인 간격을 다시 잡는다.
+ * (화면의 "표시 항목" 메뉴와 서버 API 가 같은 규칙을 쓰도록 여기에 둔다)
+ */
+function applyDisplayItems(diagram, items) {
+  const use = normalizeDisplayItems(items);
+  diagram.displayItems = use;
+
+  const h = nodeHeight(use.length);
+  if (h === diagram.layout.NODE_H) return diagram; // 줄 수가 그대로면 배치를 건드리지 않는다
+
+  const lane = laneHeight(h);
+  const top = diagram.layout.LANE_TOP;
+  diagram.layout.NODE_H = h;
+  diagram.layout.LANE_H = lane;
+
+  let maxDepth = 1;
+  for (const n of diagram.nodes) {
+    n.h = h;
+    n.y = top + ((n.depth || 1) - 1) * lane;
+    maxDepth = Math.max(maxDepth, n.depth || 1);
+  }
+  diagram.layout.maxDepth = maxDepth;
+  diagram.layout.canvasH = top + maxDepth * lane + LAYOUT.PAD_BOTTOM;
+  return diagram;
 }
 
 /**
@@ -89,6 +167,12 @@ function primaryPoints(points) {
  */
 function buildDiagram(model, opts = {}) {
   const lookup = model.__lookup;
+
+  // 각 포인트에 무엇을 표시할지 — 기본은 유효전력량·전류·전압·역률 4종.
+  // 나머지 계측 항목은 화면의 "표시 항목" 메뉴에서 켠다.
+  const displayItems = normalizeDisplayItems(opts.displayItems);
+  const nodeH = nodeHeight(displayItems.length);
+  const laneH = laneHeight(nodeH);
 
   // 오류가 있는 파일도 미리보기를 만들 수 있어야 한다(tolerant 모드).
   // 중복 ID·자기참조·순환은 검증기가 이미 지적했으므로, 여기서는 배치가
@@ -166,7 +250,7 @@ function buildDiagram(model, opts = {}) {
 
     const id = `n${node.systemId}`;
     const x = Math.round(cx.get(node.systemId) - LAYOUT.NODE_W / 2);
-    const y = LAYOUT.LANE_TOP + (depth - 1) * LAYOUT.LANE_H;
+    const y = LAYOUT.LANE_TOP + (depth - 1) * laneH;
 
     nodes.push({
       id,
@@ -185,7 +269,7 @@ function buildDiagram(model, opts = {}) {
       x,
       y,
       w: LAYOUT.NODE_W,
-      h: LAYOUT.NODE_H,
+      h: nodeH,
       parent: node.parentId && byId.has(node.parentId) ? `n${node.parentId}` : null,
       energySource: node.energySource,
       energySourceName: node.energySourceName,
@@ -219,7 +303,7 @@ function buildDiagram(model, opts = {}) {
       incomer: lookup.incomerBySystem.get(node.systemId) || null,
 
       points,
-      display: primaryPoints(points),
+      display: resolveMeasures(points),
       locked: false,
       source: 'excel',
     });
@@ -232,7 +316,7 @@ function buildDiagram(model, opts = {}) {
 
   for (const root of roots) walk(root, 1, `n${root.systemId}`);
 
-  const canvasH = LAYOUT.LANE_TOP + maxDepth * LAYOUT.LANE_H + LAYOUT.PAD_BOTTOM;
+  const canvasH = LAYOUT.LANE_TOP + maxDepth * laneH + LAYOUT.PAD_BOTTOM;
 
   // ── 대시보드 구성 ──────────────────────────────────────────────
   const mains = nodes.filter((n) => n.kind === 'main');
@@ -268,10 +352,13 @@ function buildDiagram(model, opts = {}) {
       generatedAt: new Date().toISOString(),
       generator: 'FEMS SCADA Diagram Generator',
     },
-    layout: { ...LAYOUT, canvasW, canvasH, maxDepth },
+    layout: { ...LAYOUT, NODE_H: nodeH, LANE_H: laneH, canvasW, canvasH, maxDepth },
     nodes,
     edges,
     dashboard,
+    // 각 포인트에 표시할 계측 항목 + 메뉴에 올릴 전체 카탈로그
+    displayItems,
+    measures: codes.MEASURE_CATALOG,
     // 편집기 팔레트에 그대로 노출되는 코드표
     codeTables: model.codeTables,
     zones: model.zones || [],
@@ -343,4 +430,15 @@ function collectPoints(diagram) {
   return [...seen.values()];
 }
 
-module.exports = { buildDiagram, addMain, collectPoints, LAYOUT, symbolFor, DISPLAY_ROLES };
+module.exports = {
+  buildDiagram,
+  addMain,
+  collectPoints,
+  applyDisplayItems,
+  normalizeDisplayItems,
+  nodeHeight,
+  laneHeight,
+  LAYOUT,
+  symbolFor,
+  DISPLAY_ROLES,
+};

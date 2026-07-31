@@ -128,6 +128,22 @@
               <button class="sc-btn sc-btn-ghost" id="fitBtn">화면 맞춤</button>
               <button class="sc-btn sc-btn-ghost" id="relayoutBtn">자동 정렬</button>
             </div>
+            <div class="sc-tool-group sc-measure-wrap">
+              <button class="sc-btn sc-btn-ghost" id="measureBtn" aria-haspopup="true" aria-expanded="false"
+                      title="각 포인트에 표시할 계측 항목을 고릅니다">표시 항목 <b id="measureCount">4</b></button>
+              <div class="sc-measure-menu" id="measureMenu" hidden>
+                <div class="sc-measure-head">
+                  <strong>포인트 표시 항목</strong>
+                  <span class="sc-muted">기본 4종 + 필요한 계측 항목을 추가하세요</span>
+                </div>
+                <div class="sc-measure-body" id="measureBody"></div>
+                <div class="sc-measure-foot">
+                  <button class="sc-btn sc-btn-ghost" id="measureResetBtn">기본값</button>
+                  <span class="spacer"></span>
+                  <button class="sc-btn sc-btn-primary" id="measureCloseBtn">닫기</button>
+                </div>
+              </div>
+            </div>
             <div class="sc-tool-group">
               <label class="sc-check">
                 <input type="checkbox" id="liveChk" /> 실시간

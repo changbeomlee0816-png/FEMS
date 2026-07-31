@@ -14,7 +14,8 @@ const fs = require('fs');
 const path = require('path');
 const { build, breakIt } = require('./make-sample');
 const { importWorkbook } = require('../server/scada/importer');
-const { addMain, collectPoints } = require('../server/scada/diagram');
+const { addMain, collectPoints, applyDisplayItems, nodeHeight } = require('../server/scada/diagram');
+const measureCodes = require('../server/scada/codes');
 
 // 테스트는 매번 새로 만들어 생성기까지 함께 검증한다.
 // 빌드에 embed 되는 `test/fixtures/` 는 건드리지 않는다 — exceljs 가 파일마다
@@ -217,6 +218,53 @@ async function main() {
     for (const n of tpl.diagram.nodes) {
       if (n.zoneCode) assert.ok(codes.has(n.zoneCode), `${n.name} 의 구역 ${n.zoneCode} 미등록`);
     }
+  });
+
+  console.log('\n포인트 표시 항목');
+  await test('기본 표시 항목은 유효전력량·전류·전압·역률 4종이다', () => {
+    assert.deepStrictEqual(tpl.diagram.displayItems, ['usage', 'current', 'voltage', 'pf']);
+  });
+  await test('도면이 계측 항목 카탈로그를 함께 싣는다', () => {
+    const ids = tpl.diagram.measures.map((m) => m.id);
+    for (const id of ['usage', 'current', 'voltage', 'pf', 'heat', 'flow', 'temperature']) {
+      assert.ok(ids.includes(id), `카탈로그에 ${id} 없음`);
+    }
+    for (const m of tpl.diagram.measures) {
+      assert.ok(m.label && m.group && m.short, `${m.id} 의 표기 정보 누락`);
+    }
+  });
+  await test('기본 4종이 실제 포인트에 연결된다', () => {
+    const metered = tpl.diagram.nodes.filter((n) => n.points.length);
+    assert.ok(metered.length >= 5, '계측 연결된 노드가 너무 적다');
+    for (const id of ['usage', 'current', 'voltage', 'pf']) {
+      const hit = metered.filter((n) => n.display[id]).length;
+      assert.ok(hit > 0, `${id} 를 가진 노드가 없다`);
+    }
+  });
+  await test('매핑 열이 없어도 포인트명으로 항목을 찾아낸다', () => {
+    assert.strictEqual(measureCodes.measureFromName('토출공기 압력'), 'pressure');
+    assert.strictEqual(measureCodes.measureFromName('삼상의 수전한 유효전력량'), 'usage');
+    assert.strictEqual(measureCodes.measureFromName('없는이름'), null);
+  });
+  await test('항목을 늘리면 박스가 높아지고 레인 간격이 벌어진다', () => {
+    const d = JSON.parse(JSON.stringify(tpl.diagram));
+    const before = { h: d.layout.NODE_H, lane: d.layout.LANE_H };
+    applyDisplayItems(d, ['usage', 'current', 'voltage', 'pf', 'power', 'reactive', 'thd', 'temperature']);
+    assert.strictEqual(d.displayItems.length, 8);
+    assert.strictEqual(d.layout.NODE_H, nodeHeight(8));
+    assert.ok(d.layout.NODE_H > before.h, '박스 높이가 그대로다');
+    assert.ok(d.layout.LANE_H >= before.lane, '레인 간격이 줄었다');
+    for (const n of d.nodes) {
+      assert.strictEqual(n.h, d.layout.NODE_H);
+      assert.strictEqual(n.y, d.layout.LANE_TOP + (n.depth - 1) * d.layout.LANE_H);
+    }
+  });
+  await test('빈 목록·모르는 항목은 기본 4종으로 되돌린다', () => {
+    const d = JSON.parse(JSON.stringify(tpl.diagram));
+    applyDisplayItems(d, []);
+    assert.deepStrictEqual(d.displayItems, ['usage', 'current', 'voltage', 'pf']);
+    applyDisplayItems(d, ['없는항목', 'current', 'current']);
+    assert.deepStrictEqual(d.displayItems, ['current']);
   });
 
   console.log('\n한전 메인 추가');
