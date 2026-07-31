@@ -156,6 +156,7 @@ function buildModel(parsed) {
     ratedPower: val(r.ratedPower),
     protection: parseProtection(val(r.protection)),
     zoneCode: val(r.zoneCode) ? String(val(r.zoneCode)).trim() : null,
+    tag: val(r.tag) ? String(val(r.tag)).trim() : null,
   }));
 
   // ── v2 시트 ──────────────────────────────────────────────────────

@@ -53,7 +53,8 @@
               오류가 있어도 도면 미리보기 생성
             </label>
             <div class="sc-tool-group">
-              <button class="sc-btn sc-btn-primary" id="tplExampleBtn">양식 다운로드 (기입 예시)</button>
+              <button class="sc-btn sc-btn-primary" id="openExampleBtn">예시 SCADA 열어보기</button>
+              <button class="sc-btn sc-btn-ghost" id="tplExampleBtn">양식 다운로드 (기입 예시)</button>
               <button class="sc-btn sc-btn-ghost" id="tplBlankBtn">빈 양식</button>
               <button class="sc-btn sc-btn-ghost" id="schemaBtn">양식 안내 보기</button>
             </div>
@@ -139,9 +140,30 @@
             </div>
           </div>
 
+          <div class="sc-zonebar" id="zoneBar" hidden></div>
+
           <div class="sc-canvas" id="canvas">
             <svg id="sld" role="img" aria-label="단선결선도"></svg>
           </div>
+
+          <!-- 알람/이벤트 바 — 실제 관제화면은 예외 없이 하단에 이걸 둔다 -->
+          <div class="sc-alarmbar" id="alarmBar">
+            <div class="sc-alarmbar-head">
+              <span class="sc-alarm-title">알람 · 이벤트</span>
+              <span class="sc-alarm-count" id="alarmCounts"></span>
+              <span class="spacer"></span>
+              <button class="sc-btn sc-btn-ghost" id="ackAllBtn">전체 확인</button>
+            </div>
+            <div class="sc-alarm-scroll">
+              <table class="sc-alarm-table">
+                <thead>
+                  <tr><th style="width:70px">등급</th><th style="width:110px">구역</th><th style="width:130px">기기 TAG</th><th>내용</th><th style="width:150px">발생시각</th><th style="width:74px">확인</th></tr>
+                </thead>
+                <tbody id="alarmBody"></tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="sc-legend" id="legend"></div>
         </div>
 
@@ -165,7 +187,7 @@
           <div id="loadChart" class="sc-chart"></div>
         </div>
         <div class="sc-panel">
-          <div class="sc-panel-head"><h2>설비그룹 구성</h2></div>
+          <div class="sc-panel-head"><h2>구역별 활성 알람</h2></div>
           <div id="groupChart" class="sc-chart"></div>
         </div>
         <div class="sc-panel">
@@ -222,6 +244,7 @@
     <script src="/js/scada/charts.js"></script>
     <script src="/js/scada/report.js"></script>
     <script src="/js/scada/pdf.js"></script>
+    <script src="/js/scada/alarms.js"></script>
     <script src="/js/scada/canvas.js"></script>
     <script src="/js/scada/app.js"></script>
   </body>

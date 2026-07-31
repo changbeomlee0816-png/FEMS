@@ -18,6 +18,7 @@ window.ScadaCanvas = (function () {
   let diagram = null;
   let live = { values: {} };
   let selectedId = null;
+  let zoneFilter = ''; // '' = 전체. 선택 시 다른 구역은 흐리게 그린다.
 
   let scale = 1;
   let tx = 0;
@@ -139,6 +140,7 @@ window.ScadaCanvas = (function () {
       node.id === selectedId ? 'is-selected' : '',
       st === 'alarm' ? 'is-alarm' : '',
       st === 'inactive' ? 'is-inactive' : '',
+      zoneFilter && node.zoneCode !== zoneFilter ? 'is-dimmed' : '',
     ]
       .filter(Boolean)
       .join(' ');
@@ -169,6 +171,9 @@ window.ScadaCanvas = (function () {
     // 실제 관제화면에서 차단기 옆에 "24kV 1250A 25kA" 와 50/51 박스가
     // 따로 붙어 있는 배치를 그대로 따랐다.
     let extras = '';
+    if (node.tag) {
+      extras += `<text class="nd-tag" x="${node.x}" y="${node.y - 5}">${esc(node.tag)}</text>`;
+    }
     if (node.rating) {
       const tw = node.rating.length * 5.4 + 10;
       extras += `
@@ -418,6 +423,8 @@ window.ScadaCanvas = (function () {
     .tr-spec{fill:#c9d6ee;font-size:9px;font-weight:600}
     .tr-spec.dim{fill:#6d80a6;font-weight:400}
     .bus-label{fill:#6d80a6;font-size:9.5px}
+    .nd-tag{fill:#b9d4ff;font-size:8.5px}
+    .nd.is-dimmed{opacity:.28}
     text{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
   `;
 
@@ -456,6 +463,12 @@ window.ScadaCanvas = (function () {
     render();
   }
 
+  /** 구역 필터 — 선택 구역 외 설비는 흐리게 (계통 전체 맥락은 유지) */
+  function setZone(code) {
+    zoneFilter = code || '';
+    render();
+  }
+
   return {
     init,
     setDiagram,
@@ -465,6 +478,7 @@ window.ScadaCanvas = (function () {
     zoomBy,
     autoLayout,
     select,
+    setZone,
     toSvgString,
     statusOf,
     primary,
@@ -474,6 +488,9 @@ window.ScadaCanvas = (function () {
     },
     get diagram() {
       return diagram;
+    },
+    get live() {
+      return live;
     },
   };
 })();

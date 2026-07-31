@@ -130,6 +130,7 @@ const ENERGY_TREE_SHEET = {
     { key: 'ratedPower', col: 'L', label: '정격용량(kW)', type: 'number', min: 0 },
     { key: 'protection', col: 'M', label: '보호요소' },
     { key: 'zoneCode', col: 'N', label: '구역코드' },
+    { key: 'tag', col: 'O', label: '기기TAG' },
   ],
 };
 

@@ -240,7 +240,10 @@ window.ScadaLocalApi = (function (req) {
         // 노드에 정격이 있으면 그 값을 기준으로 만든다. 없을 때만 계약전력/기본값으로 떨어진다.
         // (이렇게 해야 계약전력 대비 사용률이 현실적인 범위로 나온다)
         const rated = node && Number(node.ratedPower) > 0 ? Number(node.ratedPower) : null;
-        const base = rated ? rated * 0.72 : node && node.kind === 'main' ? Number(p.model.site.contractPower) || 800 : 45;
+        // 데모에서는 일부 설비를 일부러 과부하로 만든다. 알람 바가 비어 있으면
+        // 관제화면의 핵심 기능을 보여주지 못하기 때문이다. (규칙은 결정적)
+        const hot = node && node.kind === 'load' && (node.systemId || 0) % 4 === 0 ? 1.9 : 1;
+        const base = (rated ? rated * 0.72 : node && node.kind === 'main' ? Number(p.model.site.contractPower) || 800 : 45) * hot;
         const wave = 0.75 + 0.25 * Math.sin(t + (pt.deviceId || 1) * 0.7 + (pt.channel || 1) * 0.3);
         const byRole = {
           power: base * wave,

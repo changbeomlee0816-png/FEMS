@@ -67,7 +67,7 @@ async function build(outPath, opts = {}) {
   }
 
   // ── 2) 화면 코드 (서버판과 동일 파일) ──────────────────────────
-  const ui = ['xlsx-lite', 'symbols', 'charts', 'report', 'pdf', 'canvas'].map((n) => read(`public/js/scada/${n}.js`));
+  const ui = ['xlsx-lite', 'symbols', 'charts', 'report', 'pdf', 'alarms', 'canvas'].map((n) => read(`public/js/scada/${n}.js`));
 
   // ── 3) 샘플 엑셀 (링크만 받은 사람도 바로 시험해 볼 수 있도록) ──
   const samples = {};

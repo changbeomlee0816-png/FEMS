@@ -24,6 +24,7 @@
     'projectList', 'schemaPanel', 'schemaBody', 'mainStrip', 'canvas', 'sld', 'legend',
     'inspector', 'inspectorBody', 'addMainBtn', 'addLoadBtn', 'deleteNodeBtn',
     'zoomInBtn', 'zoomOutBtn', 'fitBtn', 'relayoutBtn', 'liveChk', 'demoBtn',
+    'openExampleBtn', 'zoneBar', 'alarmBar', 'alarmBody', 'alarmCounts', 'ackAllBtn',
     'exportPdfBtn', 'exportSvgBtn', 'exportJsonBtn', 'saveBtn', 'loadChart', 'groupChart', 'siteInfo',
     'facilityBody', 'facilityCount', 'pointsBody', 'pointsCount', 'publishBtn', 'toast',
   ].forEach((id) => (els[id] = $(id)));
@@ -34,6 +35,8 @@
     pendingFile: null,
     dirty: false,
     liveTimer: null,
+    zone: '',              // 선택된 구역코드 ('' = 전체)
+    acked: new Set(),      // 확인 처리한 알람 키
   };
 
   // ── 공통 UI ────────────────────────────────────────────────────
@@ -162,7 +165,10 @@
     state.project = project;
     state.dirty = false;
     els.projectSelect.value = String(id);
+    state.zone = '';
+    state.acked = new Set();
     Canvas.setDiagram(project.diagram);
+    renderZoneBar();
     renderMainStrip();
     renderLegend();
     renderInspector(null);
@@ -234,6 +240,63 @@
           </article>`;
       })
       .join('');
+  }
+
+  /**
+   * 구역 탭 — Amkor(변전동/기계전기실/P1F EAST) · ABB(OVERVIEW/6.9kV SWGR) 처럼
+   * 큰 계통을 구역 단위로 나눠 본다. 구역 정보가 없는 도면에서는 숨긴다.
+   */
+  function renderZoneBar() {
+    const d = state.project && state.project.diagram;
+    const zones = (d && d.zones) || [];
+    if (!zones.length) {
+      els.zoneBar.hidden = true;
+      state.zone = '';
+      return;
+    }
+    els.zoneBar.hidden = false;
+    const count = (code) => d.nodes.filter((n) => !code || n.zoneCode === code).length;
+    els.zoneBar.innerHTML =
+      `<button data-zone="" class="${state.zone === '' ? 'active' : ''}">전체 <b>${count('')}</b></button>` +
+      zones
+        .map((z) => `<button data-zone="${esc(z.code)}" class="${state.zone === z.code ? 'active' : ''}" title="${esc(z.note || '')}">${esc(z.name)} <b>${count(z.code)}</b></button>`)
+        .join('');
+  }
+
+  /** 구역 선택 → 해당 구역 설비만 남기고 나머지는 흐리게 */
+  function applyZone() {
+    Canvas.setZone(state.zone);
+    renderZoneBar();
+  }
+
+  // ── 알람 바 ────────────────────────────────────────────────────
+  function renderAlarms() {
+    if (!state.project) return;
+    const live = Canvas.live || { values: {} };
+    const res = window.ScadaAlarms.evaluate(state.project.diagram, live, state.acked);
+    state.alarms = res;
+
+    els.alarmCounts.innerHTML = res.unacked
+      ? `<span class="n-unacked">미확인 ${res.unacked}</span><span class="n-active">활성 ${res.active}</span>`
+      : res.active
+        ? `<span class="n-active">활성 ${res.active}</span>`
+        : '<span class="n-clear">정상</span>';
+
+    const L = window.ScadaAlarms.LEVELS;
+    els.alarmBody.innerHTML = res.items.length
+      ? res.items
+          .map(
+            (a) => `<tr class="lv-${a.level}${a.acked ? ' is-acked' : ''}" data-node="${esc(a.nodeId)}" data-key="${esc(a.key)}">
+              <td><span class="a-lv ${a.level}">${L[a.level].icon} ${L[a.level].label}</span></td>
+              <td>${esc(a.zone)}</td>
+              <td class="a-tag">${esc(a.tag)}</td>
+              <td>${esc(a.name)} — ${esc(a.message)}</td>
+              <td class="a-ts">${a.ts ? new Date(a.ts).toLocaleString('ko-KR', { hour12: false }) : '-'}</td>
+              <td>${a.acked ? '<span class="sc-muted">확인됨</span>' : `<button class="a-ack" data-ack="${esc(a.key)}">확인</button>`}</td>
+            </tr>`
+          )
+          .join('')
+      : '<tr><td colspan="6" class="sc-empty">활성 알람이 없습니다.</td></tr>';
   }
 
   function renderLegend() {
@@ -407,6 +470,7 @@
       const live = await api.live(state.project.id);
       Canvas.setLive(live);
       renderMainStrip();
+      renderAlarms();
       if (state.view === 'dashboard') renderDashboard();
       const sel = state.project.diagram.nodes.find((n) => n.id === Canvas.selectedId);
       if (sel) renderInspector(sel);
@@ -441,10 +505,16 @@
     });
     Charts.groupedBars(els.loadChart, loadData, { unit: 'kW', series1: '현재 유효전력', series2: '정격/계약전력' });
 
-    const groups = (d.dashboard && d.dashboard.facilityGroups) || [];
-    Charts.horizontalBars(els.groupChart, groups.map((g) => ({ name: g.name, value: g.count })), {
-      unit: '개', title: '설비그룹별 설비 수',
-    });
+    // 설비그룹별 설비 수는 데이터 입력 통계일 뿐 관제에 쓸모가 없어서 뺐다.
+    // 그 자리에 관제화면이 실제로 보는 것 — 구역별 알람 건수를 넣는다.
+    const alarms = window.ScadaAlarms.evaluate(d, Canvas.live || { values: {} }, state.acked);
+    const byZone = new Map();
+    for (const a of alarms.items) {
+      if (a.level === 'info') continue;
+      byZone.set(a.zone, (byZone.get(a.zone) || 0) + 1);
+    }
+    const zoneData = [...byZone.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
+    Charts.horizontalBars(els.groupChart, zoneData, { unit: '건', title: '구역별 활성 알람' });
 
     els.siteInfo.innerHTML = [
       ['회사명', site.company],
@@ -574,6 +644,68 @@
     }
     els.tplExampleBtn.addEventListener('click', () => grabTemplate('example', els.tplExampleBtn));
     els.tplBlankBtn.addEventListener('click', () => grabTemplate('blank', els.tplBlankBtn));
+
+    /**
+     * 예시 SCADA — 업로드 없이 바로 도면을 본다.
+     * 별도 데이터를 두지 않고 **양식 기입 예시본을 그대로 임포트**한다.
+     * 그래서 예시 화면과 양식이 언제나 같은 내용을 가리킨다.
+     */
+    els.openExampleBtn.addEventListener('click', async () => {
+      const btn = els.openExampleBtn;
+      const label = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '예시 여는 중…';
+      try {
+        const bytes = await api.template('example');
+        const file = new File([bytes], '예시_SCADA.xlsx', {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const res = await api.import(file, { name: '예시 SCADA — 154kV 2회선 수전 공장' });
+        if (!res.project) {
+          toast(res.message || '예시를 만들 수 없습니다.', 'error');
+          return;
+        }
+        await loadProjects();
+        await openProject(res.project.id);
+        setView('editor');
+        // 값이 없으면 도면이 회색이라 예시로서 의미가 없다. 바로 채워 보여준다.
+        await api.demoTick(res.project.id);
+        await refreshLive();
+        toast('예시 SCADA 를 열었습니다. 같은 내용이 “양식 다운로드(기입 예시)” 에 들어 있습니다.', 'ok');
+      } catch (e) {
+        toast('예시를 열지 못했습니다: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    });
+
+    // 구역 탭
+    els.zoneBar.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      state.zone = b.dataset.zone || '';
+      applyZone();
+    });
+
+    // 알람 바 — 행 클릭 시 해당 설비 선택, 확인 버튼은 확인 처리
+    els.alarmBody.addEventListener('click', (e) => {
+      const ack = e.target.closest('[data-ack]');
+      if (ack) {
+        e.stopPropagation();
+        state.acked.add(ack.dataset.ack);
+        renderAlarms();
+        return;
+      }
+      const tr = e.target.closest('tr[data-node]');
+      if (tr) Canvas.select(tr.dataset.node);
+    });
+    els.ackAllBtn.addEventListener('click', () => {
+      if (!state.alarms) return;
+      for (const a of state.alarms.items) state.acked.add(a.key);
+      renderAlarms();
+      toast('알람을 모두 확인 처리했습니다.', 'ok');
+    });
 
     els.saveProjectBtn.addEventListener('click', saveProject);
     els.schemaBtn.addEventListener('click', showSchema);

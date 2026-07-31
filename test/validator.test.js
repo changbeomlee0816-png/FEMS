@@ -203,6 +203,22 @@ async function main() {
     assert.ok(bad.report.issues.every((i) => i.code !== 'VOLTAGE_UNIT'), '정상 양식에 단위 오류가 잡힘');
   });
 
+  await test('기기 TAG 가 노드에 붙는다', () => {
+    const tagged = tpl.diagram.nodes.filter((n) => n.tag);
+    assert.strictEqual(tagged.length, tpl.diagram.nodes.length, 'TAG 가 빠진 노드가 있음');
+    assert.ok(tagged.some((n) => n.tag === 'RCP-1'), 'RCP-1 없음');
+    assert.ok(tagged.some((n) => n.tag === 'VCB-201'), 'VCB-201 없음');
+  });
+  await test('구역이 표시순서대로 도면에 실린다', () => {
+    assert.deepStrictEqual(tpl.diagram.zones.map((z) => z.code), ['SUB', 'MEP', 'FAB1', 'GEN']);
+  });
+  await test('모든 노드가 등록된 구역코드만 쓴다', () => {
+    const codes = new Set(tpl.diagram.zones.map((z) => z.code));
+    for (const n of tpl.diagram.nodes) {
+      if (n.zoneCode) assert.ok(codes.has(n.zoneCode), `${n.name} 의 구역 ${n.zoneCode} 미등록`);
+    }
+  });
+
   console.log('\n한전 메인 추가');
   await test('도면에서 한전메인을 추가할 수 있다', () => {
     const d = JSON.parse(JSON.stringify(good.diagram));

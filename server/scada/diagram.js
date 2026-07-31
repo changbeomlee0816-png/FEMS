@@ -209,6 +209,7 @@ function buildDiagram(model, opts = {}) {
       breakingCapacity: node.breakingCapacity != null ? node.breakingCapacity : null,
       protection: node.protection && node.protection.length ? node.protection : [],
       zoneCode: node.zoneCode || null,
+      tag: node.tag || null,
       zoneName: node.zoneCode && lookup.zoneByCode.has(node.zoneCode) ? lookup.zoneByCode.get(node.zoneCode).name : null,
       transformer: (() => {
         const tr = lookup.transformerBySystem.get(node.systemId);
