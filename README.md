@@ -62,6 +62,16 @@ npm test             # 검증기·도면 생성기 회귀 테스트
 `/scada.html` 에서 `test/fixtures/sample-good.xlsx` 를 올리면 한전 메인 2개짜리
 단선결선도가 만들어지고, `sample-broken.xlsx` 를 올리면 셀 단위 오류 리포트를 볼 수 있습니다.
 
+### 서버 없이 쓰기
+
+```bash
+npm run build:standalone   # → dist/scada-standalone.html
+```
+
+브라우저만으로 전 과정(엑셀 파싱·검증·도면 생성·편집)이 도는 단일 HTML 파일입니다.
+서버판과 **같은 `server/scada/*.js` 로직을 그대로** 감싸 넣고, exceljs 자리에만
+브라우저 XLSX 리더를 끼웠기 때문에 검증 결과가 서버와 완전히 일치합니다.
+
 ### 데모 데이터로 동작 확인
 
 서버를 켠 상태에서 별도 터미널에서:

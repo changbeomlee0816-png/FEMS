@@ -8,7 +8,8 @@
     "simulate": "node server/simulator.js",
     "seed": "node server/simulator.js --seed",
     "test": "node test/validator.test.js",
-    "sample": "node test/make-sample.js"
+    "sample": "node test/make-sample.js",
+    "build:standalone": "node tools/build-standalone.js"
   },
   "repository": {
     "type": "git",

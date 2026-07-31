@@ -379,9 +379,18 @@
     markDirty();
   }
 
-  function download(filename, text, mime) {
-    const blob = new Blob([text], { type: mime });
-    const url = URL.createObjectURL(blob);
+  async function download(filename, text, mime) {
+    // 게시된 페이지에서는 호스트가 제공하는 저장 경로를 먼저 쓴다.
+    // (일반 서버 실행 시에는 존재하지 않으므로 곧바로 아래 앵커 방식으로 내려간다)
+    if (window.claude && window.claude.downloads) {
+      try {
+        await window.claude.downloads.save({ filename, data: text });
+        return;
+      } catch (e) {
+        if (e && e.code === 'user_rejected') return;
+      }
+    }
+    const url = URL.createObjectURL(new Blob([text], { type: mime }));
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;

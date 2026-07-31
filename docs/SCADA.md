@@ -222,7 +222,37 @@ test/validator.test.js   회귀 테스트
 
 ---
 
-## 6. 테스트
+## 6. 서버 없이 쓰기 (단일 HTML 빌드)
+
+```bash
+npm run sample            # 샘플 엑셀 생성 (빌드에 함께 embed 된다)
+npm run build:standalone  # → dist/scada-standalone.html
+```
+
+브라우저만으로 전 과정이 도는 단일 HTML 파일이 나온다. 파일을 열기만 하면
+엑셀 업로드·검증·도면 생성·편집이 모두 그 화면 안에서 실행되고,
+만든 도면은 브라우저 localStorage 에 저장된다.
+
+이게 가능한 이유는 **로직을 복사하지 않고 감싸기만 했기** 때문이다.
+
+| 서버 | 단일 HTML |
+| --- | --- |
+| `server/scada/*.js` | 같은 파일을 CommonJS 셈으로 감싸 그대로 사용 |
+| `exceljs` | `public/js/scada/xlsx-lite.js` (브라우저 XLSX 리더) |
+| `public/js/scada/api.js` (REST 호출) | `public/js/scada/local-api.js` (동일 인터페이스, localStorage) |
+| 화면 코드 (`app/canvas/charts/report/symbols`) | **수정 없이 동일** |
+
+`xlsx-lite.js` 는 브라우저 내장 `DecompressionStream('deflate-raw')` 으로 ZIP 을 풀고
+`DOMParser` 로 시트 XML 을 읽는다. 외부 라이브러리가 없다.
+공유 문자열·inline 문자열·수식 결과·불리언·오류 셀을 처리하고,
+날짜는 `styles.xml` 의 numFmt 로 판별해 serial 을 Date 로 되돌린다(1900 윤년 버그 보정 포함).
+
+검증 규칙이나 배치 알고리즘을 `server/scada/` 에서 고치면 다시 빌드하는 것만으로
+단일 HTML 에도 그대로 반영된다 — 두 벌을 관리하지 않는다.
+
+---
+
+## 7. 테스트
 
 ```bash
 npm run sample   # test/fixtures/sample-good.xlsx, sample-broken.xlsx 생성
