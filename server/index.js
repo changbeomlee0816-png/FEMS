@@ -5,6 +5,7 @@ const express = require('express');
 const config = require('./config');
 const monitor = require('./monitor');
 const api = require('./routes/api');
+const scada = require('./routes/scada');
 
 const app = express();
 app.use(express.json({ limit: '5mb' }));
@@ -17,6 +18,8 @@ app.get('/healthz', (req, res) => res.json({ ok: true, ts: new Date().toISOStrin
 
 // API
 app.use('/api', api);
+// SCADA 도면 제작 프로그램
+app.use('/api/scada', scada);
 
 // 주기적 모니터링 평가 루프 (실시간 상시 모니터링)
 let timer = null;
@@ -35,6 +38,7 @@ function startMonitorLoop() {
 const server = app.listen(config.server.port, () => {
   console.log(`FEMS 원격 모니터링 시스템 실행 중: http://localhost:${config.server.port}`);
   console.log(`  · 대시보드      : http://localhost:${config.server.port}/`);
+  console.log(`  · SCADA 도면    : http://localhost:${config.server.port}/scada.html`);
   console.log(`  · 데이터 수집    : POST /api/ingest`);
   console.log(`  · 평가 주기      : ${config.server.evalIntervalSec}s`);
   startMonitorLoop();

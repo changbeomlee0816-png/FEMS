@@ -2,3 +2,10 @@ node_modules/
 data/
 *.log
 .DS_Store
+
+# 테스트 실행 중 생성되는 임시 파일
+# (test/fixtures/ 의 샘플 엑셀은 빌드에 embed 되므로 커밋한다)
+test/.tmp/
+
+# 단일 파일 빌드 산출물 (npm run build:standalone)
+dist/

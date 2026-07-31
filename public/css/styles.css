@@ -141,3 +141,6 @@ body {
 
 .foot { text-align: center; color: var(--muted); font-size: 12px; padding: 20px; }
 .foot code { background: #e4eaf2; padding: 2px 6px; border-radius: 4px; }
+
+/* 상단 바 링크 버튼 (SCADA 도면 제작 화면 이동) */
+a.btn { text-decoration: none; display: inline-block; }
