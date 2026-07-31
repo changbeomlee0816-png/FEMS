@@ -10,7 +10,8 @@
     "test": "node test/validator.test.js",
     "sample": "node test/make-sample.js",
     "build:standalone": "node tools/build-standalone.js",
-    "build:pages": "node tools/build-standalone.js docs/scada.html"
+    "build:pages": "node tools/build-standalone.js docs/scada.html",
+    "build:artifact": "node tools/build-standalone.js dist/scada-artifact.html --fragment"
   },
   "repository": {
     "type": "git",

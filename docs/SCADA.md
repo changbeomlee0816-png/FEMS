@@ -227,9 +227,17 @@ test/validator.test.js   회귀 테스트
 공개 주소: <https://changbeomlee0816-png.github.io/FEMS/scada.html>
 
 ```bash
-npm run build:standalone  # → dist/scada-standalone.html  (배포용 사본)
+npm run build:standalone  # → dist/scada-standalone.html  (파일로 배포할 사본)
 npm run build:pages       # → docs/scada.html             (GitHub Pages 가 서비스하는 파일)
+npm run build:artifact    # → dist/scada-artifact.html    (문서 골격을 host 가 씌우는 환경용)
 ```
+
+기본 출력은 `<!doctype>` 부터 갖춘 **완전한 HTML 문서**다. `--fragment` 를 주면 본문만 낸다.
+
+`<meta charset="utf-8">` 이 빠지면 브라우저가 latin-1 로 읽어 스크립트 안의 한글
+시트명 리터럴(`'0)기본정보'` 등)이 깨지고, 시트 매칭이 전부 실패해 업로드가 통째로
+동작하지 않는다. 정적 호스팅 중에는 charset 헤더를 안 붙이는 서버도 있어서
+문서 안에 직접 넣는다.
 
 브라우저만으로 전 과정이 도는 단일 HTML 파일이 나온다. 파일을 열기만 하면
 엑셀 업로드·검증·도면 생성·편집이 모두 그 화면 안에서 실행되고,

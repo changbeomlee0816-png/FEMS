@@ -10,7 +10,15 @@
  *
  *   → 검증 규칙이나 배치 알고리즘을 서버에서 고치면 이 빌드에도 그대로 반영된다.
  *
- * 실행: node tools/build-standalone.js [출력경로]
+ * 출력은 두 가지다.
+ *   기본        — 완전한 HTML 문서. 정적 호스팅(GitHub Pages)이나 파일 더블클릭용.
+ *   --fragment  — <head> 없이 본문만. 문서 골격을 host 가 씌워주는 환경(Claude 아티팩트)용.
+ *
+ * `<meta charset="utf-8">` 이 빠지면 브라우저가 latin-1 로 읽어 스크립트 안의
+ * 한글 시트명 리터럴이 깨지고, 그 결과 시트 매칭이 전부 실패한다. 기본 출력이
+ * 완전한 문서인 이유다.
+ *
+ * 실행: node tools/build-standalone.js [출력경로] [--fragment]
  */
 
 const fs = require('fs');
@@ -51,7 +59,7 @@ function wrapModule(name, source) {
   return `__def(${JSON.stringify(name)}, function (module, exports, require) {\n${source}\n});\n`;
 }
 
-function build(outPath) {
+function build(outPath, opts = {}) {
   // ── 1) 서버 로직 번들 ──────────────────────────────────────────
   const bundle = [cjsShim()];
   for (const name of SERVER_MODULES) {
@@ -97,9 +105,9 @@ function build(outPath) {
 
   const css = read('public/css/scada.css');
 
-  const out = `<title>FEMS SCADA 도면 제작</title>
+  // ── 5) head / body 를 처음부터 나눠서 만든다 ──────────────────
+  const headHtml = `<title>FEMS SCADA 도면 제작</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b1120'/%3E%3Cpath d='M17 6l-7 11h5l-1 9 7-11h-5z' fill='%2335d0a5'/%3E%3C/svg%3E" />
-
 <style>
 ${css}
 
@@ -119,9 +127,9 @@ html, body { margin: 0; padding: 0; background: #0b1120; }
 }
 .sc-standalone-main { font-size: 13.2px; color: var(--text-secondary); max-width: 82ch; }
 .sc-standalone-main strong { color: var(--text-primary); font-weight: 650; }
-</style>
+</style>`;
 
-<div class="scada">
+  const bodyHtml = `<div class="scada">
 ${markup}
 </div>
 
@@ -174,18 +182,37 @@ window.ScadaApi = window.ScadaLocalApi(__req);
 
 <script>
 ${read('public/js/scada/app.js')}
-</script>
+</script>`;
+
+  // 아티팩트처럼 host 가 문서 골격을 씌워주는 환경에서는 본문만 내보낸다.
+  // 그 외에는 charset 을 포함한 완전한 문서여야 한다.
+  const out = opts.fragment
+    ? `${headHtml}\n\n${bodyHtml}\n`
+    : `<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="FEMS 수용가 등록 엑셀을 올리면 SCADA 단선결선도를 만들어 주는 도구" />
+${headHtml}
+</head>
+<body>
+${bodyHtml}
+</body>
+</html>
 `;
 
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
   fs.writeFileSync(outPath, out);
-  return { outPath, bytes: out.length };
+  return { outPath, bytes: out.length, fragment: !!opts.fragment };
 }
 
 if (require.main === module) {
-  const out = process.argv[2] || path.join(ROOT, 'dist', 'scada-standalone.html');
-  const r = build(out);
-  console.log(`빌드 완료: ${r.outPath} (${Math.round(r.bytes / 1024)}KB)`);
+  const args = process.argv.slice(2);
+  const fragment = args.includes('--fragment');
+  const out = args.filter((a) => !a.startsWith('--'))[0] || path.join(ROOT, 'dist', 'scada-standalone.html');
+  const r = build(out, { fragment });
+  console.log(`빌드 완료: ${r.outPath} (${Math.round(r.bytes / 1024)}KB${r.fragment ? ', fragment' : ''})`);
 }
 
 module.exports = { build };

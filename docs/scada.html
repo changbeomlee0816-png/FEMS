@@ -1,6 +1,11 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="FEMS 수용가 등록 엑셀을 올리면 SCADA 단선결선도를 만들어 주는 도구" />
 <title>FEMS SCADA 도면 제작</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b1120'/%3E%3Cpath d='M17 6l-7 11h5l-1 9 7-11h-5z' fill='%2335d0a5'/%3E%3C/svg%3E" />
-
 <style>
 /* ==========================================================================
    FEMS SCADA 도면 제작 프로그램
@@ -460,7 +465,8 @@ html, body { margin: 0; padding: 0; background: #0b1120; }
 .sc-standalone-main { font-size: 13.2px; color: var(--text-secondary); max-width: 82ch; }
 .sc-standalone-main strong { color: var(--text-primary); font-weight: 650; }
 </style>
-
+</head>
+<body>
 <div class="scada">
 <header class="sc-topbar">
       <div class="sc-brand">
@@ -4835,3 +4841,5 @@ window.ScadaApi = window.ScadaLocalApi(__req);
 })();
 
 </script>
+</body>
+</html>
