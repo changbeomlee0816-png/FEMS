@@ -60,6 +60,23 @@ db.exec(`
   CREATE UNIQUE INDEX IF NOT EXISTS idx_alarms_active_dedup
     ON alarms(dedup_key) WHERE status != 'resolved';
 
+  -- SCADA 도면 제작 프로그램: 업로드된 수용가 등록 엑셀로부터 생성된 도면 문서
+  CREATE TABLE IF NOT EXISTS scada_projects (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    name            TEXT NOT NULL,
+    factory_code    TEXT,                          -- 공장코드 (FEMS 접속주소 / 포인트 키 접두)
+    company         TEXT,
+    site            TEXT,                          -- FEMS 사업장 코드 매핑 (연동 시 사용)
+    source_filename TEXT,
+    model_json      TEXT NOT NULL,                 -- 엑셀에서 뽑아낸 정규 모델
+    diagram_json    TEXT NOT NULL,                 -- 단선결선도 문서 (사용자 편집 반영)
+    report_json     TEXT,                          -- 업로드 시 검증 리포트
+    published_at    TEXT,                          -- 계측 포인트를 points 테이블에 등록한 시각
+    created_at      TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at      TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_scada_factory ON scada_projects(factory_code);
+
   CREATE TABLE IF NOT EXISTS notifications (
     id        INTEGER PRIMARY KEY AUTOINCREMENT,
     alarm_id  INTEGER,

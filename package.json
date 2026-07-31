@@ -1,12 +1,14 @@
 {
   "name": "fems-remote-monitoring",
   "version": "1.0.0",
-  "description": "FEMS 원격 모니터링 시스템 - 수신율·정합성 중심 통합 관제 (SLA)",
+  "description": "FEMS 원격 모니터링 + SCADA 도면 제작 (수용가 등록 엑셀 → 단선결선도 자동 생성)",
   "main": "server/index.js",
   "scripts": {
     "start": "node server/index.js",
     "simulate": "node server/simulator.js",
-    "seed": "node server/simulator.js --seed"
+    "seed": "node server/simulator.js --seed",
+    "test": "node test/validator.test.js",
+    "sample": "node test/make-sample.js"
   },
   "repository": {
     "type": "git",
@@ -16,12 +18,17 @@
     "FEMS",
     "monitoring",
     "SLA",
-    "energy"
+    "energy",
+    "SCADA",
+    "single-line-diagram",
+    "one-line-diagram"
   ],
   "author": "",
   "license": "ISC",
   "dependencies": {
     "better-sqlite3": "^12.11.1",
-    "express": "^5.2.1"
+    "exceljs": "^4.4.0",
+    "express": "^5.2.1",
+    "multer": "^2.2.0"
   }
 }

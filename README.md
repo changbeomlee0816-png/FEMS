@@ -1,10 +1,27 @@
-# FEMS 원격 모니터링 시스템
+# FEMS 원격 모니터링 시스템 + SCADA 도면 제작
 
 수서/유호스트 **FEMS SLA 제안서 12~13페이지**의 *「원격 모니터링 전략」* 및
 *「모니터링 시스템 고도화 계획」* 을 바탕으로 구현한 **수신율·정합성 기반 통합 관제 시스템**입니다.
 
 계측 데이터를 밀어넣는 외부 소스 프로그램은 나중에 붙일 수 있도록,
 **데이터 수집(`POST /api/ingest`) 인터페이스를 표준화된 연동 지점**으로 설계했습니다.
+
+여기에 더해, **「FEMS 수용가 등록 엑셀」을 올리면 SCADA 단선결선도 화면을 자동 생성하는
+도면 제작 프로그램**이 함께 들어 있습니다.
+
+| 화면 | 주소 | 내용 |
+| --- | --- | --- |
+| 통합 관제 대시보드 | `/` | 수신율·정합성·SLA·알람 |
+| **SCADA 도면 제작** | **`/scada.html`** | **엑셀 업로드 → 셀 단위 검증 → 단선결선도 자동 생성 → FEMS 연동** |
+
+SCADA 도면 제작 프로그램의 상세 문서: **[`docs/SCADA.md`](docs/SCADA.md)**
+
+- 엑셀에 잘못된 값이 있으면 **`2)채널활성화 및 설비트리 D8` 처럼 셀 주소를 정확히 짚어**
+  현재 값·문제·조치(오타면 근접값 제안까지)를 알려줍니다.
+- **한전 메인은 한 업체에 두 개 이상** 가능합니다. 엑셀의 레벨 1 계통을 여러 개 넣거나,
+  도면 화면에서 `＋ 한전메인 추가` 로 언제든 늘릴 수 있습니다.
+- 도면의 계측 포인트는 기존 FEMS `points`·`POST /api/ingest`·모니터링 엔진과
+  **같은 `point_key` 하나로 연결**되어, 나중에 FEMS 본 시스템에 그대로 이식됩니다.
 
 ---
 
@@ -29,10 +46,21 @@
 
 ```bash
 npm install          # 최초 1회
-npm start            # 모니터링 서버 실행 (http://localhost:3000)
+npm start            # 서버 실행 (http://localhost:3000)
 ```
 
-브라우저에서 `http://localhost:3000` 접속 → 통합 관제 대시보드.
+- `http://localhost:3000` → 통합 관제 대시보드
+- `http://localhost:3000/scada.html` → SCADA 도면 제작
+
+### SCADA 도면 바로 만들어 보기
+
+```bash
+npm run sample       # 샘플 수용가 등록 엑셀 생성 (정상 / 오류 각 1개)
+npm test             # 검증기·도면 생성기 회귀 테스트
+```
+
+`/scada.html` 에서 `test/fixtures/sample-good.xlsx` 를 올리면 한전 메인 2개짜리
+단선결선도가 만들어지고, `sample-broken.xlsx` 를 올리면 셀 단위 오류 리포트를 볼 수 있습니다.
 
 ### 데모 데이터로 동작 확인
 
@@ -123,8 +151,15 @@ server/
   notify.js      알람 자동 발송 (SMS/메신저/이메일 — 실제 연동 지점)
   simulator.js   데모 데이터 생성 & 연동 예제
   routes/api.js  REST API
-public/          통합 관제 대시보드 (정적)
+  scada/         SCADA 도면 제작 (엑셀 파싱·검증·도면 생성·FEMS 연동)
+  routes/scada.js  도면 API
+public/
+  index.html     통합 관제 대시보드
+  scada.html     SCADA 도면 제작 화면
+test/            샘플 엑셀 생성기 + 회귀 테스트
 ```
+
+SCADA 도면 제작 부분의 상세 구조와 연동 규격은 [`docs/SCADA.md`](docs/SCADA.md) 참고.
 
 ## 단계적 적용 (제안서 로드맵)
 

@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FEMS SCADA 도면 제작</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230b1120'/%3E%3Cpath d='M17 6l-7 11h5l-1 9 7-11h-5z' fill='%2335d0a5'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="/css/scada.css" />
+  </head>
+  <body class="scada">
+    <header class="sc-topbar">
+      <div class="sc-brand">
+        <svg class="sc-logo" viewBox="0 0 32 32" aria-hidden="true">
+          <path d="M16 2 4 9v14l12 7 12-7V9z" fill="none" stroke="currentColor" stroke-width="2" />
+          <path d="M17 8l-7 10h5l-1 6 7-10h-5z" fill="currentColor" />
+        </svg>
+        <div>
+          <strong>FEMS SCADA 도면 제작</strong>
+          <span class="sc-brand-sub">수용가 등록 엑셀 → 단선결선도 자동 생성</span>
+        </div>
+      </div>
+
+      <nav class="sc-tabs" id="tabs">
+        <button data-view="upload" class="active">엑셀 업로드</button>
+        <button data-view="editor">SCADA 도면</button>
+        <button data-view="dashboard">대시보드</button>
+        <button data-view="points">연동 포인트</button>
+      </nav>
+
+      <div class="sc-topbar-right">
+        <select id="projectSelect" class="sc-select" title="저장된 도면"></select>
+        <span id="clock" class="sc-clock"></span>
+      </div>
+    </header>
+
+    <!-- ─────────────────────────── 업로드 ─────────────────────────── -->
+    <section class="sc-view" id="view-upload">
+      <div class="sc-upload-grid">
+        <div>
+          <div class="sc-dropzone" id="dropzone" tabindex="0" role="button" aria-label="엑셀 파일 업로드">
+            <svg viewBox="0 0 48 48" class="sc-drop-icon" aria-hidden="true">
+              <path d="M24 32V10m0 0-8 8m8-8 8 8" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M8 30v6a2 2 0 0 0 2 2h28a2 2 0 0 0 2-2v-6" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <p class="sc-drop-title">FEMS 수용가 등록 엑셀을 여기에 놓으세요</p>
+            <p class="sc-drop-sub">또는 클릭해서 파일 선택 · .xlsx (최대 20MB)</p>
+            <input type="file" id="fileInput" accept=".xlsx,.xlsm" hidden />
+          </div>
+
+          <div class="sc-upload-actions">
+            <label class="sc-check">
+              <input type="checkbox" id="tolerantChk" />
+              오류가 있어도 도면 미리보기 생성
+            </label>
+            <button class="sc-btn sc-btn-ghost" id="schemaBtn">양식 안내 보기</button>
+          </div>
+
+          <div id="uploadStatus" class="sc-status" hidden></div>
+
+          <!-- 검증 리포트 -->
+          <div class="sc-panel" id="reportPanel" hidden>
+            <div class="sc-panel-head">
+              <h2>업로드 검증 결과</h2>
+              <div class="sc-filter" id="reportFilter">
+                <button data-level="" class="active">전체 <b id="cntAll">0</b></button>
+                <button data-level="error">오류 <b id="cntError">0</b></button>
+                <button data-level="warning">확인 필요 <b id="cntWarn">0</b></button>
+                <button data-level="info">참고 <b id="cntInfo">0</b></button>
+              </div>
+            </div>
+            <p class="sc-report-lead" id="reportLead"></p>
+            <div class="sc-table-scroll">
+              <table class="sc-table" id="reportTable">
+                <thead>
+                  <tr>
+                    <th style="width:76px">구분</th>
+                    <th style="width:190px">위치</th>
+                    <th style="width:150px">항목</th>
+                    <th style="width:170px">입력된 값</th>
+                    <th>무엇이 잘못되었는지 / 어떻게 고치는지</th>
+                  </tr>
+                </thead>
+                <tbody id="reportBody"></tbody>
+              </table>
+            </div>
+            <div class="sc-panel-foot">
+              <button class="sc-btn sc-btn-ghost" id="copyReportBtn">결과 복사</button>
+              <button class="sc-btn" id="saveProjectBtn" disabled>이 도면 저장하고 열기</button>
+            </div>
+          </div>
+        </div>
+
+        <aside class="sc-side">
+          <div class="sc-panel">
+            <div class="sc-panel-head"><h2>저장된 도면</h2></div>
+            <ul class="sc-project-list" id="projectList"></ul>
+          </div>
+          <div class="sc-panel" id="schemaPanel" hidden>
+            <div class="sc-panel-head"><h2>양식 안내</h2></div>
+            <div class="sc-schema" id="schemaBody"></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── SCADA 도면 ─────────────────────────── -->
+    <section class="sc-view" id="view-editor" hidden>
+      <!-- 한전 메인 KPI 스트립 -->
+      <div class="sc-mainstrip" id="mainStrip"></div>
+
+      <div class="sc-editor">
+        <div class="sc-canvas-wrap">
+          <div class="sc-toolbar">
+            <div class="sc-tool-group">
+              <button class="sc-btn sc-btn-primary" id="addMainBtn" title="한전 수전점을 하나 더 추가합니다">＋ 한전메인 추가</button>
+              <button class="sc-btn sc-btn-ghost" id="addLoadBtn">＋ 부하 추가</button>
+              <button class="sc-btn sc-btn-ghost" id="deleteNodeBtn" disabled>선택 삭제</button>
+            </div>
+            <div class="sc-tool-group">
+              <button class="sc-btn sc-btn-ghost" id="zoomOutBtn" aria-label="축소">－</button>
+              <span class="sc-zoom" id="zoomLabel">100%</span>
+              <button class="sc-btn sc-btn-ghost" id="zoomInBtn" aria-label="확대">＋</button>
+              <button class="sc-btn sc-btn-ghost" id="fitBtn">화면 맞춤</button>
+              <button class="sc-btn sc-btn-ghost" id="relayoutBtn">자동 정렬</button>
+            </div>
+            <div class="sc-tool-group">
+              <label class="sc-check">
+                <input type="checkbox" id="liveChk" /> 실시간
+              </label>
+              <button class="sc-btn sc-btn-ghost" id="demoBtn" title="계측기 연동 전 화면 확인용 데모 값">데모 값 주입</button>
+              <button class="sc-btn sc-btn-ghost" id="exportSvgBtn">SVG</button>
+              <button class="sc-btn sc-btn-ghost" id="exportJsonBtn">JSON</button>
+              <button class="sc-btn sc-btn-primary" id="saveBtn">저장</button>
+            </div>
+          </div>
+
+          <div class="sc-canvas" id="canvas">
+            <svg id="sld" role="img" aria-label="단선결선도"></svg>
+          </div>
+          <div class="sc-legend" id="legend"></div>
+        </div>
+
+        <aside class="sc-inspector" id="inspector">
+          <div class="sc-panel-head"><h2>속성</h2></div>
+          <div id="inspectorBody" class="sc-inspector-body">
+            <p class="sc-empty">도면에서 설비를 선택하면 속성이 표시됩니다.</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 대시보드 ─────────────────────────── -->
+    <section class="sc-view" id="view-dashboard" hidden>
+      <div class="sc-dash-grid">
+        <div class="sc-panel sc-span2">
+          <div class="sc-panel-head">
+            <h2>계통별 부하 현황</h2>
+            <span class="sc-muted">현재 유효전력 vs 정격/계약전력</span>
+          </div>
+          <div id="loadChart" class="sc-chart"></div>
+        </div>
+        <div class="sc-panel">
+          <div class="sc-panel-head"><h2>설비그룹 구성</h2></div>
+          <div id="groupChart" class="sc-chart"></div>
+        </div>
+        <div class="sc-panel">
+          <div class="sc-panel-head"><h2>수용가 정보</h2></div>
+          <div id="siteInfo" class="sc-kv"></div>
+        </div>
+        <div class="sc-panel sc-span2">
+          <div class="sc-panel-head">
+            <h2>설비 목록</h2>
+            <span class="sc-muted" id="facilityCount"></span>
+          </div>
+          <div class="sc-table-scroll sc-h320">
+            <table class="sc-table">
+              <thead>
+                <tr><th>계통</th><th>설비그룹</th><th>설비코드</th><th>장비</th><th>채널</th><th>유효전력</th></tr>
+              </thead>
+              <tbody id="facilityBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─────────────────────────── 연동 포인트 ─────────────────────────── -->
+    <section class="sc-view" id="view-points" hidden>
+      <div class="sc-panel">
+        <div class="sc-panel-head">
+          <h2>FEMS 연동 계측 포인트</h2>
+          <div class="sc-tool-group">
+            <span class="sc-muted" id="pointsCount"></span>
+            <button class="sc-btn sc-btn-primary" id="publishBtn">FEMS에 포인트 등록</button>
+          </div>
+        </div>
+        <p class="sc-report-lead">
+          도면의 각 설비에 붙은 계측 포인트입니다. <code>FEMS에 포인트 등록</code> 을 누르면 FEMS
+          <code>points</code> 테이블에 등록되고, 이후 수집 프로그램이
+          <code>POST /api/ingest</code> 로 같은 <code>point_key</code> 를 보내면 도면 위 값이 실시간으로 움직입니다.
+        </p>
+        <div class="sc-table-scroll sc-h520">
+          <table class="sc-table">
+            <thead>
+              <tr><th>point_key</th><th>설비</th><th>포인트명</th><th>단위</th><th>역할</th><th>장비/채널</th><th>Address</th></tr>
+            </thead>
+            <tbody id="pointsBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="sc-toast" hidden></div>
+
+    <script src="/js/scada/api.js"></script>
+    <script src="/js/scada/symbols.js"></script>
+    <script src="/js/scada/charts.js"></script>
+    <script src="/js/scada/report.js"></script>
+    <script src="/js/scada/canvas.js"></script>
+    <script src="/js/scada/app.js"></script>
+  </body>
+</html>

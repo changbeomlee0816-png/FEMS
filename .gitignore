@@ -2,3 +2,6 @@ node_modules/
 data/
 *.log
 .DS_Store
+
+# 테스트용 샘플 엑셀 (npm run sample 로 생성)
+test/fixtures/

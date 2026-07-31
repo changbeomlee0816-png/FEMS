@@ -1,0 +1,294 @@
+'use strict';
+
+const codes = require('./codes');
+
+/**
+ * 정규 모델 → SCADA 단선결선도(SLD) 도면 문서.
+ *
+ * 산출물은 순수 데이터(JSON)다. 렌더링은 전적으로 클라이언트가 담당하고,
+ * 서버는 "무엇을 어디에 그릴지"만 결정한다. 덕분에
+ *  - 도면을 DB 에 그대로 저장/버전관리할 수 있고
+ *  - 사용자가 편집한 좌표를 되돌려 저장할 수 있으며
+ *  - 나중에 FEMS 본 시스템이 같은 JSON 을 받아 자기 화면에 그릴 수 있다.
+ */
+
+const LAYOUT = {
+  NODE_W: 150,
+  NODE_H: 62,
+  LEAF_W: 186,
+  LANE_TOP: 210, // 1레벨(한전 메인) 박스 상단 — 위쪽에 수전/MOF 심볼 자리를 비워둔다
+  LANE_H: 205,
+  MAIN_GAP: 150,
+  PAD_X: 70,
+  PAD_BOTTOM: 120,
+  BUS_OFFSET: 46, // 박스 하단 ~ 모선 사이 간격
+};
+
+/** 계통명 키워드로 심볼을 추정한다 (설비코드가 비어 있는 통합/그룹 계통용). */
+function symbolFromName(name) {
+  const n = String(name || '');
+  if (/한전|수전|메인|main/i.test(n)) return 'utility';
+  if (/수배전|배전반|판넬|panel|mcc/i.test(n)) return 'switchgear';
+  if (/태양광|pv|solar/i.test(n)) return 'pv';
+  if (/압축|컴프|compressor|펌프|pump|팬|fan|송풍/i.test(n)) return 'motor';
+  if (/보일러|히트펌프|열교환|온수/i.test(n)) return 'heat';
+  if (/로$|소성|용해|용탕|furnace/i.test(n)) return 'furnace';
+  if (/사출|압출|성형|프레스|인쇄|절삭|mct/i.test(n)) return 'machine';
+  return null;
+}
+
+function symbolFor({ level, hasChildren, equipmentCode, name }) {
+  if (level === 1) return 'utility';
+  if (equipmentCode && codes.SYMBOL_BY_EQUIPMENT[equipmentCode]) return codes.SYMBOL_BY_EQUIPMENT[equipmentCode];
+  const guess = symbolFromName(name);
+  if (guess) return guess;
+  return hasChildren ? 'switchgear' : 'load';
+}
+
+/** 표시용 주요 계측 포인트 (도면 위 값 칩) */
+const DISPLAY_ROLES = ['power', 'current', 'voltage', 'pf', 'usage'];
+
+function primaryPoints(points) {
+  const out = {};
+  for (const role of DISPLAY_ROLES) {
+    const hit = points.find((p) => p.roles.includes(role));
+    if (hit) out[role] = { key: hit.key, unit: hit.unit, name: hit.name };
+  }
+  return out;
+}
+
+/**
+ * 도면 생성.
+ * @param {object} model  model.buildModel() 결과
+ * @param {object} [opts] { name }
+ */
+function buildDiagram(model, opts = {}) {
+  const lookup = model.__lookup;
+
+  // 오류가 있는 파일도 미리보기를 만들 수 있어야 한다(tolerant 모드).
+  // 중복 ID·자기참조·순환은 검증기가 이미 지적했으므로, 여기서는 배치가
+  // 무한 재귀에 빠지지 않도록 트리를 안전한 형태로 정리만 한다.
+  const byId = new Map();
+  const tree = [];
+  for (const n of model.energyTree) {
+    if (n.systemId == null || byId.has(n.systemId)) continue; // 중복 ID 는 첫 행만 채택
+    byId.set(n.systemId, n);
+    tree.push(n);
+  }
+
+  /** 조상을 거슬러 올라가 순환에 걸리는 노드는 최상위로 끌어올린다. */
+  function effectiveParent(n) {
+    if (n.parentId === n.systemId || !byId.has(n.parentId)) return 0;
+    const seen = new Set([n.systemId]);
+    let cur = byId.get(n.parentId);
+    while (cur) {
+      if (seen.has(cur.systemId)) return 0; // 순환 → 루트로 분리
+      seen.add(cur.systemId);
+      cur = byId.has(cur.parentId) ? byId.get(cur.parentId) : null;
+    }
+    return n.parentId;
+  }
+
+  const childrenOf = new Map();
+  for (const n of tree) {
+    const pid = effectiveParent(n);
+    if (!childrenOf.has(pid)) childrenOf.set(pid, []);
+    childrenOf.get(pid).push(n);
+  }
+  for (const list of childrenOf.values()) list.sort((a, b) => a.systemId - b.systemId);
+
+  const roots = childrenOf.get(0) || [];
+
+  // ── 좌표 배치 (leaf 슬롯 폭 기반 tidy layout) ──────────────────
+  const cx = new Map();
+  function assign(node, x0) {
+    const kids = childrenOf.get(node.systemId) || [];
+    if (kids.length === 0) {
+      cx.set(node.systemId, x0 + LAYOUT.LEAF_W / 2);
+      return LAYOUT.LEAF_W;
+    }
+    let cursor = x0;
+    let total = 0;
+    for (const k of kids) {
+      const w = assign(k, cursor);
+      cursor += w;
+      total += w;
+    }
+    cx.set(node.systemId, x0 + total / 2);
+    return total;
+  }
+
+  let cursor = LAYOUT.PAD_X;
+  const mainRegions = [];
+  for (const root of roots) {
+    const w = assign(root, cursor);
+    mainRegions.push({ systemId: root.systemId, x0: cursor, x1: cursor + w });
+    cursor += w + LAYOUT.MAIN_GAP;
+  }
+  const canvasW = Math.max(cursor - LAYOUT.MAIN_GAP + LAYOUT.PAD_X, 1200);
+
+  // ── 노드 생성 ──────────────────────────────────────────────────
+  const nodes = [];
+  const edges = [];
+  let maxDepth = 1;
+
+  function walk(node, depth, mainId) {
+    maxDepth = Math.max(maxDepth, depth);
+    const kids = childrenOf.get(node.systemId) || [];
+    const channel = lookup.channelByKey.get(`${node.deviceId}-${node.channel}`) || null;
+    const device = lookup.deviceById.get(node.deviceId) || null;
+    const points = lookup.pointsFor(node.deviceId, node.channel);
+
+    const id = `n${node.systemId}`;
+    const x = Math.round(cx.get(node.systemId) - LAYOUT.NODE_W / 2);
+    const y = LAYOUT.LANE_TOP + (depth - 1) * LAYOUT.LANE_H;
+
+    nodes.push({
+      id,
+      systemId: node.systemId,
+      mainId,
+      kind: depth === 1 ? 'main' : kids.length ? 'group' : 'load',
+      symbol: symbolFor({ level: depth, hasChildren: kids.length > 0, equipmentCode: channel && channel.equipmentCode, name: node.name }),
+      name: node.name,
+      depth,
+      x,
+      y,
+      w: LAYOUT.NODE_W,
+      h: LAYOUT.NODE_H,
+      parent: node.parentId && byId.has(node.parentId) ? `n${node.parentId}` : null,
+      energySource: node.energySource,
+      energySourceName: node.energySourceName,
+      device: device
+        ? { deviceId: device.deviceId, productName: device.productName, ip: device.ip, location: device.location, active: device.active }
+        : null,
+      channel: node.channel,
+      facility: channel
+        ? { loadName: channel.loadName, equipmentCode: channel.equipmentCode, groupId: channel.groupId, groupName: channel.groupName, facilityId: channel.facilityId, facilityName: channel.facilityName }
+        : null,
+      // 도면에서 바로 편집 가능한 정격값 (엑셀에 없는 값이므로 기본 null)
+      ratedPower: depth === 1 ? model.site.contractPower : null,
+      capacity: depth === 1 ? model.site.receivingCapacity : null,
+      points,
+      display: primaryPoints(points),
+      locked: false,
+      source: 'excel',
+    });
+
+    for (const k of kids) {
+      edges.push({ id: `e${node.systemId}-${k.systemId}`, from: id, to: `n${k.systemId}`, kind: 'feeder', breaker: true });
+      walk(k, depth + 1, mainId);
+    }
+  }
+
+  for (const root of roots) walk(root, 1, `n${root.systemId}`);
+
+  const canvasH = LAYOUT.LANE_TOP + maxDepth * LAYOUT.LANE_H + LAYOUT.PAD_BOTTOM;
+
+  // ── 대시보드 구성 ──────────────────────────────────────────────
+  const mains = nodes.filter((n) => n.kind === 'main');
+  const groups = nodes.filter((n) => n.kind === 'group');
+  const loads = nodes.filter((n) => n.kind === 'load');
+
+  const dashboard = {
+    // 상단 KPI 스트립 — 한전 메인마다 카드 1장 (ETAP 화면의 G1~G6 스트립과 동일한 역할)
+    mainCards: mains.map((m) => ({
+      nodeId: m.id,
+      name: m.name,
+      contractPower: model.site.contractPower,
+      receivingCapacity: model.site.receivingCapacity,
+      points: m.display,
+    })),
+    // 계통(레벨2) 부하 비교 막대
+    loadSeries: groups.map((g) => ({ nodeId: g.id, name: g.name, powerKey: g.display.power ? g.display.power.key : null })),
+    // 설비그룹 구성 도넛
+    facilityGroups: model.facilityGroups.map((g) => ({ groupId: g.groupId, name: g.name, count: g.facilities.length })),
+    counts: { mains: mains.length, groups: groups.length, loads: loads.length, points: nodes.reduce((a, n) => a + n.points.length, 0) },
+  };
+
+  return {
+    version: 1,
+    meta: {
+      name: opts.name || `${model.site.company || model.site.factoryCode} SCADA 도면`,
+      company: model.site.company,
+      factoryCode: model.site.factoryCode,
+      tariff: model.site.tariff,
+      contractPower: model.site.contractPower,
+      receivingCapacity: model.site.receivingCapacity,
+      generatedAt: new Date().toISOString(),
+      generator: 'FEMS SCADA Diagram Generator',
+    },
+    layout: { ...LAYOUT, canvasW, canvasH, maxDepth },
+    nodes,
+    edges,
+    dashboard,
+    // 편집기 팔레트에 그대로 노출되는 코드표
+    codeTables: model.codeTables,
+  };
+}
+
+/**
+ * 한전 메인(최상위 계통) 추가.
+ *
+ * "한 업체에 한전메인이 두 개일 수 있다" 는 요구사항의 구현체.
+ * 도면에서 버튼 한 번으로 두 번째 수전점을 만들고, 그 아래로 계통을 붙여 나간다.
+ */
+function addMain(diagram, input = {}) {
+  const existingMains = diagram.nodes.filter((n) => n.kind === 'main');
+  const nextSystemId = Math.max(0, ...diagram.nodes.map((n) => n.systemId || 0)) + 1;
+  const id = `n${nextSystemId}`;
+
+  const rightEdge = diagram.nodes.length
+    ? Math.max(...diagram.nodes.map((n) => n.x + n.w))
+    : diagram.layout.PAD_X;
+
+  const node = {
+    id,
+    systemId: nextSystemId,
+    mainId: id,
+    kind: 'main',
+    symbol: 'utility',
+    name: input.name || `한전 메인 ${existingMains.length + 1}`,
+    depth: 1,
+    x: Math.round(rightEdge + diagram.layout.MAIN_GAP),
+    y: diagram.layout.LANE_TOP,
+    w: diagram.layout.NODE_W,
+    h: diagram.layout.NODE_H,
+    parent: null,
+    energySource: input.energySource != null ? input.energySource : 1,
+    energySourceName: input.energySourceName || '전력',
+    device: null,
+    channel: input.channel != null ? input.channel : null,
+    facility: null,
+    ratedPower: input.contractPower != null ? input.contractPower : null,
+    capacity: input.receivingCapacity != null ? input.receivingCapacity : null,
+    points: [],
+    display: {},
+    locked: false,
+    source: 'manual',
+  };
+
+  diagram.nodes.push(node);
+  diagram.layout.canvasW = Math.max(diagram.layout.canvasW, node.x + node.w + diagram.layout.PAD_X);
+  diagram.dashboard.mainCards.push({
+    nodeId: id,
+    name: node.name,
+    contractPower: node.ratedPower,
+    receivingCapacity: node.capacity,
+    points: {},
+  });
+  diagram.dashboard.counts.mains = diagram.nodes.filter((n) => n.kind === 'main').length;
+  return node;
+}
+
+/** 도면의 모든 계측 포인트를 평탄화 (FEMS points 테이블 등록용) */
+function collectPoints(diagram) {
+  const seen = new Map();
+  for (const n of diagram.nodes) {
+    for (const p of n.points || []) {
+      if (!seen.has(p.key)) seen.set(p.key, { ...p, nodeId: n.id, nodeName: n.name });
+    }
+  }
+  return [...seen.values()];
+}
+
+module.exports = { buildDiagram, addMain, collectPoints, LAYOUT, symbolFor, DISPLAY_ROLES };
