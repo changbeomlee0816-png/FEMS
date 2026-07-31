@@ -1,0 +1,88 @@
+name: SCADA 도면 제작 — Pages 산출물 갱신
+
+# 이 리포지토리의 GitHub Pages 는 `main` 브랜치의 `/docs` 폴더를 그대로 서비스한다.
+# 따라서 별도 배포 단계가 없고, `docs/scada.html`(단일 HTML 빌드)만 최신으로
+# 유지하면 머지되는 순간 아래 주소에 반영된다.
+#
+#   https://changbeomlee0816-png.github.io/FEMS/           기존 통합관제 데모 (docs/index.html)
+#   https://changbeomlee0816-png.github.io/FEMS/scada.html SCADA 도면 제작
+#
+#  · main 에 푸시되면  → 다시 빌드해서 달라졌으면 커밋한다 (사람이 잊어도 안 어긋난다)
+#  · PR 에서는          → 낡았는지만 확인하고 알려준다 (PR 브랜치에 커밋하지 않는다)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'server/scada/**'
+      - 'public/**'
+      - 'tools/build-standalone.js'
+      - 'test/make-sample.js'
+      - '.github/workflows/pages.yml'
+  pull_request:
+    paths:
+      - 'server/scada/**'
+      - 'public/**'
+      - 'tools/build-standalone.js'
+      - 'test/make-sample.js'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      # --ignore-scripts: 이 빌드에 필요한 건 exceljs 뿐이다.
+      # better-sqlite3(네이티브)는 서버 실행에만 쓰이므로 컴파일을 건너뛴다.
+      - name: 의존성 설치
+        run: npm ci --ignore-scripts --omit=dev
+
+      - name: 검증기 회귀 테스트
+        run: npm test
+
+      - name: 샘플 엑셀 생성 (빌드에 embed 된다)
+        run: npm run sample
+
+      - name: Pages 산출물 빌드
+        run: npm run build:pages
+
+      - name: 변경 여부 확인
+        id: diff
+        run: |
+          if git diff --quiet -- docs/scada.html; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "docs/scada.html 최신 상태입니다."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "docs/scada.html 이 소스와 어긋나 있습니다."
+          fi
+
+      # PR: 고치지 않고 알려만 준다
+      - name: PR — 산출물이 낡았으면 실패
+        if: github.event_name == 'pull_request' && steps.diff.outputs.changed == 'true'
+        run: |
+          echo "::error::docs/scada.html 이 소스와 어긋납니다. 로컬에서 'npm run build:pages' 실행 후 커밋하세요."
+          exit 1
+
+      # main: 다시 빌드한 결과를 그대로 커밋한다
+      - name: main — 산출물 갱신 커밋
+        if: github.event_name != 'pull_request' && steps.diff.outputs.changed == 'true'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/scada.html
+          git commit -m "chore: Pages 산출물 갱신 (docs/scada.html) [skip ci]"
+          git push

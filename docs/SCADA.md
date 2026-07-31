@@ -224,9 +224,11 @@ test/validator.test.js   회귀 테스트
 
 ## 6. 서버 없이 쓰기 (단일 HTML 빌드)
 
+공개 주소: <https://changbeomlee0816-png.github.io/FEMS/scada.html>
+
 ```bash
-npm run sample            # 샘플 엑셀 생성 (빌드에 함께 embed 된다)
-npm run build:standalone  # → dist/scada-standalone.html
+npm run build:standalone  # → dist/scada-standalone.html  (배포용 사본)
+npm run build:pages       # → docs/scada.html             (GitHub Pages 가 서비스하는 파일)
 ```
 
 브라우저만으로 전 과정이 도는 단일 HTML 파일이 나온다. 파일을 열기만 하면
@@ -249,6 +251,26 @@ npm run build:standalone  # → dist/scada-standalone.html
 
 검증 규칙이나 배치 알고리즘을 `server/scada/` 에서 고치면 다시 빌드하는 것만으로
 단일 HTML 에도 그대로 반영된다 — 두 벌을 관리하지 않는다.
+
+### GitHub Pages 배포
+
+이 리포지토리의 Pages 는 `main` 브랜치의 `/docs` 폴더를 그대로 서비스한다.
+따라서 배포 단계가 따로 없고, `docs/scada.html` 이 최신이기만 하면 된다.
+
+| 주소 | 내용 |
+| --- | --- |
+| `…github.io/FEMS/` | 기존 통합관제 데모 (`docs/index.html`) — 그대로 유지 |
+| `…github.io/FEMS/scada.html` | SCADA 도면 제작 (`docs/scada.html`) |
+
+`.github/workflows/pages.yml` 이 어긋남을 막는다.
+
+- `main` 에 푸시 → 다시 빌드해서 달라졌으면 자동으로 커밋한다
+- PR → 산출물이 낡았으면 실패시키고 `npm run build:pages` 를 안내한다
+
+빌드는 결정적이어야 이 검사가 성립한다. 그래서 **`test/fixtures/*.xlsx` 는 커밋해서 고정**하고
+(빌드에 embed 되는 샘플), 테스트는 `test/.tmp/` 에 따로 생성한다 —
+exceljs 가 파일마다 생성 시각을 써 넣기 때문에, 매번 다시 만들면 산출물이 계속 달라진다.
+양식이 바뀌어 샘플을 갱신할 때만 `npm run sample` 을 실행하고 결과를 커밋한다.
 
 ---
 

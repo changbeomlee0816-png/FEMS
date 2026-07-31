@@ -16,7 +16,10 @@ const { build, breakIt } = require('./make-sample');
 const { importWorkbook } = require('../server/scada/importer');
 const { addMain, collectPoints } = require('../server/scada/diagram');
 
-const FIX = path.join(__dirname, 'fixtures');
+// 테스트는 매번 새로 만들어 생성기까지 함께 검증한다.
+// 빌드에 embed 되는 `test/fixtures/` 는 건드리지 않는다 — exceljs 가 파일마다
+// 생성 시각을 넣어서, 덮어쓰면 빌드 산출물이 매번 달라지기 때문이다.
+const FIX = path.join(__dirname, '.tmp');
 
 let passed = 0;
 let failed = 0;

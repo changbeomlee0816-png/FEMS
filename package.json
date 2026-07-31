@@ -9,7 +9,8 @@
     "seed": "node server/simulator.js --seed",
     "test": "node test/validator.test.js",
     "sample": "node test/make-sample.js",
-    "build:standalone": "node tools/build-standalone.js"
+    "build:standalone": "node tools/build-standalone.js",
+    "build:pages": "node tools/build-standalone.js docs/scada.html"
   },
   "repository": {
     "type": "git",

@@ -62,10 +62,13 @@ npm test             # 검증기·도면 생성기 회귀 테스트
 `/scada.html` 에서 `test/fixtures/sample-good.xlsx` 를 올리면 한전 메인 2개짜리
 단선결선도가 만들어지고, `sample-broken.xlsx` 를 올리면 셀 단위 오류 리포트를 볼 수 있습니다.
 
-### 서버 없이 쓰기
+### 서버 없이 쓰기 · 공개 주소
+
+**<https://changbeomlee0816-png.github.io/FEMS/scada.html>** — 설치 없이 바로 사용
 
 ```bash
 npm run build:standalone   # → dist/scada-standalone.html
+npm run build:pages        # → docs/scada.html (GitHub Pages 서비스 파일)
 ```
 
 브라우저만으로 전 과정(엑셀 파싱·검증·도면 생성·편집)이 도는 단일 HTML 파일입니다.
