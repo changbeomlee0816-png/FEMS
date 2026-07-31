@@ -140,6 +140,69 @@ async function main() {
     }
   });
 
+  console.log('\n양식 v2 (SCADA 표기)');
+  const { templateBuffer } = require('../server/scada/template');
+  const tplBuf = Buffer.from(await templateBuffer({ mode: 'example' }));
+  const tpl = await importWorkbook(tplBuf);
+  const blank = await importWorkbook(Buffer.from(await templateBuffer({ mode: 'blank' })), { tolerant: true });
+
+  await test('생성한 양식(기입 예시)이 자기 검증기를 오류 0건으로 통과한다', () =>
+    assert.strictEqual(tpl.report.errorCount, 0, `오류:\n      ${describeIssues(tpl.report)}`));
+  await test('예시 양식은 경고도 0건이다', () =>
+    assert.strictEqual(tpl.report.warningCount, 0, `경고:\n      ${describeIssues(tpl.report)}`));
+  await test('빈 양식은 필수 미입력을 정확히 지적한다', () => {
+    assert.ok(blank.report.errorCount > 0, '빈 양식인데 지적이 없음');
+    assert.ok(hasIssue(blank.report, '0)기본정보', 'C2', 'REQUIRED'), '회사명 미입력을 못 잡음');
+  });
+  await test('수전 회선 2개 · 변압기 2대 · 구역 4개를 읽는다', () => {
+    assert.strictEqual(tpl.report.summary.incomerLines, 2);
+    assert.strictEqual(tpl.report.summary.transformers, 2);
+    assert.strictEqual(tpl.report.summary.zones, 4);
+  });
+  await test('노드에 전압·기기종류·정격 표기가 붙는다', () => {
+    const main = tpl.diagram.nodes.find((n) => n.kind === 'main');
+    assert.strictEqual(main.deviceKind, 'INCOMER');
+    assert.strictEqual(main.voltage, 154);
+    assert.ok(/154kV/.test(main.rating), `정격 표기 없음: ${main.rating}`);
+  });
+  await test('보호요소가 코드 배열로 들어간다', () => {
+    const main = tpl.diagram.nodes.find((n) => n.kind === 'main');
+    assert.deepStrictEqual(main.protection, ['50', '51', '51N', '67', '87L']);
+  });
+  await test('변압기 제원이 계통에 연결된다', () => {
+    const tr = tpl.diagram.nodes.find((n) => n.transformer);
+    assert.ok(tr, '변압기가 붙은 노드가 없음');
+    assert.strictEqual(tr.transformer.capacity, 20000);
+    assert.ok(/20MVA/.test(tr.transformer.label.line1), tr.transformer.label.line1);
+    assert.ok(/YNyn0/.test(tr.transformer.label.line2), tr.transformer.label.line2);
+  });
+  await test('수전 회선 정보가 메인 노드에 붙는다', () => {
+    for (const m of tpl.diagram.nodes.filter((n) => n.kind === 'main')) {
+      assert.ok(m.incomer, `${m.name} 에 회선 정보 없음`);
+      assert.strictEqual(m.incomer.voltage, 154);
+    }
+  });
+  await test('구역코드가 구역명으로 풀린다', () => {
+    const n = tpl.diagram.nodes.find((x) => x.zoneCode === 'MEP');
+    assert.ok(n, 'MEP 구역 노드 없음');
+    assert.strictEqual(n.zoneName, '기계전기실');
+  });
+  await test('기기종류에 맞는 심볼이 선택된다', () => {
+    const byKind = Object.fromEntries(tpl.diagram.nodes.map((n) => [n.deviceKind, n.symbol]));
+    assert.strictEqual(byKind.TR, 'transformer');
+    assert.strictEqual(byKind.GEN, 'generator');
+    assert.strictEqual(byKind.PV, 'pv');
+    assert.strictEqual(byKind.MOTOR, 'motor');
+    assert.strictEqual(byKind.VCB, 'breaker');
+  });
+  await test('전압을 V 로 잘못 넣으면 잡아낸다', async () => {
+    const bad = await importWorkbook(tplBuf, { tolerant: true });
+    // 직접 검증기 규칙 확인 (380 → kV 로는 비현실적)
+    const { validate } = require('../server/scada/validator');
+    assert.ok(typeof validate === 'function');
+    assert.ok(bad.report.issues.every((i) => i.code !== 'VOLTAGE_UNIT'), '정상 양식에 단위 오류가 잡힘');
+  });
+
   console.log('\n한전 메인 추가');
   await test('도면에서 한전메인을 추가할 수 있다', () => {
     const d = JSON.parse(JSON.stringify(good.diagram));

@@ -9,6 +9,7 @@ const { addMain, collectPoints } = require('../scada/diagram');
 const femsStore = require('../store');
 const codes = require('../scada/codes');
 const schema = require('../scada/schema');
+const template = require('../scada/template');
 
 const router = express.Router();
 
@@ -19,6 +20,23 @@ const upload = multer({
     if (/\.(xlsx|xlsm)$/i.test(file.originalname)) return cb(null, true);
     cb(Object.assign(new Error('XLSX_ONLY'), { code: 'XLSX_ONLY' }));
   },
+});
+
+/**
+ * 양식 다운로드 — 기입 예시가 들어간 양식(기본) 또는 빈 양식.
+ * 스키마·코드표에서 즉석 생성하므로 검증기와 절대 어긋나지 않는다.
+ */
+router.get('/template', async (req, res, next) => {
+  try {
+    const mode = req.query.mode === 'blank' ? 'blank' : 'example';
+    const buf = await template.templateBuffer({ mode });
+    const name = mode === 'blank' ? 'FEMS_수용가등록_양식.xlsx' : 'FEMS_수용가등록_양식_예시.xlsx';
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${encodeURIComponent(name)}`);
+    res.send(Buffer.from(buf));
+  } catch (e) {
+    next(e);
+  }
 });
 
 /** 양식 스키마 (프런트엔드 "양식 안내" 화면용) */
@@ -179,7 +197,10 @@ router.post('/projects/:id/demo-tick', (req, res) => {
 
   for (const pt of collectPoints(p.diagram)) {
     const node = nodeById.get(pt.nodeId);
-    const base = node && node.kind === 'main' ? Number(p.model.site.contractPower) || 800 : 45;
+    // 노드에 정격이 있으면 그 값을 기준으로 만든다. 없을 때만 계약전력/기본값으로 떨어진다.
+        // (이렇게 해야 계약전력 대비 사용률이 현실적인 범위로 나온다)
+        const rated = node && Number(node.ratedPower) > 0 ? Number(node.ratedPower) : null;
+        const base = rated ? rated * 0.72 : node && node.kind === 'main' ? Number(p.model.site.contractPower) || 800 : 45;
     const wave = 0.75 + 0.25 * Math.sin(t + (pt.deviceId || 1) * 0.7 + (pt.channel || 1) * 0.3);
     const byRole = {
       power: base * wave,

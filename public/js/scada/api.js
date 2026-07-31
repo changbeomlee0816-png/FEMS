@@ -41,6 +41,11 @@ window.ScadaApi = (function () {
 
   return {
     schema: () => send('GET', '/schema'),
+    template: async (mode) => {
+      const res = await fetch(`${base}/template?mode=${mode === 'blank' ? 'blank' : 'example'}`);
+      if (!res.ok) throw new Error('양식을 받지 못했습니다.');
+      return new Uint8Array(await res.arrayBuffer());
+    },
     preview: (file, opts) => upload('/import/preview', file, opts),
     import: (file, opts) => upload('/import', file, opts),
 

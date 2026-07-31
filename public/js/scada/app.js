@@ -19,12 +19,12 @@
   const els = {};
   [
     'tabs', 'projectSelect', 'clock', 'dropzone', 'fileInput', 'tolerantChk', 'schemaBtn',
-    'uploadStatus', 'reportPanel', 'reportFilter', 'reportLead', 'reportBody', 'reportTable',
+    'tplExampleBtn', 'tplBlankBtn', 'uploadStatus', 'reportPanel', 'reportFilter', 'reportLead', 'reportBody', 'reportTable',
     'cntAll', 'cntError', 'cntWarn', 'cntInfo', 'copyReportBtn', 'saveProjectBtn',
     'projectList', 'schemaPanel', 'schemaBody', 'mainStrip', 'canvas', 'sld', 'legend',
     'inspector', 'inspectorBody', 'addMainBtn', 'addLoadBtn', 'deleteNodeBtn',
     'zoomInBtn', 'zoomOutBtn', 'fitBtn', 'relayoutBtn', 'liveChk', 'demoBtn',
-    'exportSvgBtn', 'exportJsonBtn', 'saveBtn', 'loadChart', 'groupChart', 'siteInfo',
+    'exportPdfBtn', 'exportSvgBtn', 'exportJsonBtn', 'saveBtn', 'loadChart', 'groupChart', 'siteInfo',
     'facilityBody', 'facilityCount', 'pointsBody', 'pointsCount', 'publishBtn', 'toast',
   ].forEach((id) => (els[id] = $(id)));
 
@@ -379,23 +379,25 @@
     markDirty();
   }
 
-  async function download(filename, text, mime) {
+  /** 파일 저장. 문자열·바이트 모두 받는다 (PDF·XLSX 는 바이트). */
+  async function download(filename, data, mime) {
+    const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : data;
     // 게시된 페이지에서는 호스트가 제공하는 저장 경로를 먼저 쓴다.
     // (일반 서버 실행 시에는 존재하지 않으므로 곧바로 아래 앵커 방식으로 내려간다)
     if (window.claude && window.claude.downloads) {
       try {
-        await window.claude.downloads.save({ filename, data: text });
+        await window.claude.downloads.save({ filename, data: bytes });
         return;
       } catch (e) {
         if (e && e.code === 'user_rejected') return;
       }
     }
-    const url = URL.createObjectURL(new Blob([text], { type: mime }));
+    const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
     const a = document.createElement('a');
     a.href = url;
     a.download = filename;
     a.click();
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
   }
 
   // ── 실시간 값 ──────────────────────────────────────────────────
@@ -553,6 +555,26 @@
         toast('복사에 실패했습니다. 표를 직접 선택해 복사하세요.', 'error');
       }
     });
+    /** 양식 다운로드 — 스키마·코드표에서 만들어지므로 항상 검증기와 일치한다 */
+    async function grabTemplate(mode, btn) {
+      const label = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '만드는 중…';
+      try {
+        const bytes = await api.template(mode);
+        const name = mode === 'blank' ? 'FEMS_수용가등록_양식.xlsx' : 'FEMS_수용가등록_양식_예시.xlsx';
+        await download(name, bytes, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        toast(mode === 'blank' ? '빈 양식을 내려받았습니다.' : '기입 예시가 포함된 양식을 내려받았습니다.', 'ok');
+      } catch (e) {
+        toast('양식 다운로드 실패: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
+    }
+    els.tplExampleBtn.addEventListener('click', () => grabTemplate('example', els.tplExampleBtn));
+    els.tplBlankBtn.addEventListener('click', () => grabTemplate('blank', els.tplBlankBtn));
+
     els.saveProjectBtn.addEventListener('click', saveProject);
     els.schemaBtn.addEventListener('click', showSchema);
 
@@ -600,6 +622,36 @@
       const r = await api.demoTick(state.project.id);
       await refreshLive();
       toast(`데모 값 ${r.injected}건을 주입했습니다.`, 'ok');
+    });
+
+    els.exportPdfBtn.addEventListener('click', async () => {
+      if (!state.project) return;
+      const btn = els.exportPdfBtn;
+      const label = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'PDF 생성 중…';
+      try {
+        const site = state.project.model.site;
+        const mains = state.project.diagram.nodes.filter((n) => n.kind === 'main');
+        const bytes = await window.ScadaPdf.fromSvg(Canvas.toSvgString(), {
+          title: state.project.name,
+          subtitle: [site.company, site.address].filter(Boolean).join(' · '),
+          meta: [
+            ['수전점', mains.length + '회선'],
+            ['계약전력', site.contractPower != null ? fmt(site.contractPower) + ' kW' : null],
+            ['수전용량', site.receivingCapacity != null ? fmt(site.receivingCapacity) + ' kW' : null],
+            ['작성일', new Date().toLocaleDateString('ko-KR')],
+          ],
+          paper: 'A3',
+        });
+        await download(state.project.name + '.pdf', bytes, 'application/pdf');
+        toast('PDF 를 내보냈습니다. (A3 가로)', 'ok');
+      } catch (e) {
+        toast('PDF 생성 실패: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = label;
+      }
     });
 
     els.exportSvgBtn.addEventListener('click', () => {

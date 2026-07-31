@@ -130,6 +130,15 @@ function buildModel(parsed) {
 
   const energySourceName = new Map(parsed.codeTables.energySources.map((e) => [e.code, e.name]));
 
+  /** 보호요소 문자열 → 코드 배열 ("50/51, 51G" → ['50','51','51G']) */
+  function parseProtection(v) {
+    if (!v) return [];
+    return String(v)
+      .split(/[,/·|]/)
+      .map((x) => x.trim().toUpperCase())
+      .filter(Boolean);
+  }
+
   const energyTree = parsed.energyTree.rows.map((r) => ({
     systemId: val(r.systemId),
     name: val(r.systemName),
@@ -139,7 +148,55 @@ function buildModel(parsed) {
     energySourceName: energySourceName.get(val(r.energySource)) || null,
     deviceId: val(r.deviceId),
     channel: val(r.channel),
+    // v2 확장 — 없으면 null 이고 도면은 기존과 동일하게 그려진다
+    voltage: val(r.voltage),
+    deviceKind: val(r.deviceKind) ? String(val(r.deviceKind)).toUpperCase() : null,
+    ratedCurrent: val(r.ratedCurrent),
+    breakingCapacity: val(r.breakingCapacity),
+    ratedPower: val(r.ratedPower),
+    protection: parseProtection(val(r.protection)),
+    zoneCode: val(r.zoneCode) ? String(val(r.zoneCode)).trim() : null,
   }));
+
+  // ── v2 시트 ──────────────────────────────────────────────────────
+  const incomers = parsed.incomers.rows.map((r) => ({
+    lineId: val(r.lineId),
+    lineName: val(r.lineName),
+    substation: val(r.substation),
+    voltage: val(r.voltage),
+    contractPower: val(r.contractPower),
+    cableSpec: val(r.cableSpec),
+    feedMode: val(r.feedMode),
+    systemId: val(r.systemId),
+  }));
+
+  const transformers = parsed.transformers.rows.map((r) => ({
+    trId: val(r.trId),
+    name: val(r.name),
+    systemId: val(r.systemId),
+    primaryVoltage: val(r.primaryVoltage),
+    secondaryVoltage: val(r.secondaryVoltage),
+    capacity: val(r.capacity),
+    vectorGroup: val(r.vectorGroup),
+    impedance: val(r.impedance),
+    cooling: val(r.cooling),
+    windingTemp: val(r.windingTempDevice) != null && val(r.windingTempChannel) != null
+      ? { deviceId: val(r.windingTempDevice), channel: val(r.windingTempChannel) }
+      : null,
+    oilTemp: val(r.oilTempDevice) != null && val(r.oilTempChannel) != null
+      ? { deviceId: val(r.oilTempDevice), channel: val(r.oilTempChannel) }
+      : null,
+  }));
+
+  const zones = parsed.zones.rows
+    .map((r) => ({
+      code: val(r.zoneCode) ? String(val(r.zoneCode)).trim() : null,
+      name: val(r.zoneName),
+      order: val(r.order),
+      note: val(r.note),
+    }))
+    .filter((z) => z.code)
+    .sort((a, b) => (a.order || 999) - (b.order || 999));
 
   /** 계통 노드에 붙는 계측 포인트 목록 생성 (FEMS 연동 지점) */
   function pointsFor(deviceId, channel) {
@@ -173,6 +230,9 @@ function buildModel(parsed) {
     channels,
     facilityGroups,
     energyTree,
+    incomers,
+    transformers,
+    zones,
     profiles,
     codeTables: {
       equipment: parsed.codeTables.equipment,
@@ -180,7 +240,14 @@ function buildModel(parsed) {
       tariffs: parsed.codeTables.tariffs,
     },
     // 헬퍼는 직렬화 대상이 아니므로 별도 반환
-    __lookup: { deviceById, channelByKey, pointsFor },
+    __lookup: {
+      deviceById,
+      channelByKey,
+      pointsFor,
+      incomerBySystem: new Map(incomers.filter((i) => i.systemId != null).map((i) => [i.systemId, i])),
+      transformerBySystem: new Map(transformers.filter((t) => t.systemId != null).map((t) => [t.systemId, t])),
+      zoneByCode: new Map(zones.map((z) => [z.code, z])),
+    },
   };
 }
 

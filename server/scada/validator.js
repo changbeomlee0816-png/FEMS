@@ -153,6 +153,25 @@ function checkField(rep, f, spec, ctx) {
     rep.error(f, 'BAD_ENUM', `통계유형은 ${codes.STAT_TYPES.join(' / ')} 중 하나여야 합니다. 현재 값: '${v}'`);
     return false;
   }
+  if (spec.type === 'enum:deviceKind') {
+    const list = codes.DEVICE_KINDS.map((d) => d.code);
+    if (!list.some((c) => c === String(v).toUpperCase())) {
+      const near = codes.closestMatch(v, list);
+      rep.error(
+        f,
+        'BAD_DEVICE_KIND',
+        `기기종류 '${v}' 은(는) 정의되지 않은 코드입니다.`,
+        near
+          ? `'${near}' 을(를) 입력하려던 것인가요?`
+          : `사용 가능: ${list.join(', ')}`
+      );
+      return false;
+    }
+  }
+  if (spec.type === 'enum:feedMode' && !codes.FEED_MODES.includes(String(v))) {
+    rep.error(f, 'BAD_ENUM', `운전구분은 ${codes.FEED_MODES.join(' / ')} 중 하나여야 합니다. 현재 값: '${v}'`);
+    return false;
+  }
 
   return true;
 }
@@ -704,6 +723,215 @@ function validateDeviceProfiles(rep, parsed) {
   }
 }
 
+
+// ── v2 시트 (7)수전계통 · 8)변압기 · 9)구역) ───────────────────────
+// 셋 다 선택 사항이다. 없으면 검사를 건너뛰고, 있으면 계통과의 연결까지 확인한다.
+
+function validateV2Sheets(rep, parsed, ctx) {
+  const systemIds = ctx.systemIds || new Set();
+  const zoneCodes = new Set();
+
+  // 9)구역 — 도면 화면 분할
+  if (parsed.zones.__exists && parsed.zones.rows.length) {
+    const seen = new Map();
+    for (const row of parsed.zones.rows) {
+      for (const spec of S.ZONE_SHEET.columns) checkField(rep, row[spec.key], spec, parsed);
+      const code = row.zoneCode;
+      if (code.value) {
+        const key = String(code.value).trim();
+        if (seen.has(key)) {
+          rep.error(code, 'DUPLICATE_ZONE', `구역코드 '${key}' 이(가) 중복되었습니다. (${seen.get(key)} 셀)`);
+        } else {
+          seen.set(key, code.cell);
+          zoneCodes.add(key);
+        }
+      }
+    }
+  }
+  ctx.zoneCodes = zoneCodes;
+
+  // 7)수전계통 — 회선별 상세. 계통의 최상위(레벨1)와 짝을 이뤄야 한다.
+  if (parsed.incomers.__exists && parsed.incomers.rows.length) {
+    const seenLine = new Map();
+    const seenSystem = new Map();
+    for (const row of parsed.incomers.rows) {
+      for (const spec of S.INCOMER_SHEET.columns) checkField(rep, row[spec.key], spec, parsed);
+
+      const id = row.lineId;
+      if (Number.isInteger(id.value)) {
+        if (seenLine.has(id.value)) {
+          rep.error(id, 'DUPLICATE_ID', `회선ID ${id.value} 이(가) 중복되었습니다. (${seenLine.get(id.value)} 셀)`);
+        } else seenLine.set(id.value, id.cell);
+      }
+
+      const sid = row.systemId;
+      if (Number.isInteger(sid.value)) {
+        if (!systemIds.has(sid.value)) {
+          rep.error(
+            sid,
+            'UNKNOWN_SYSTEM',
+            `연결계통ID ${sid.value} 에 해당하는 에너지계통이 '${S.SHEETS.ENERGY_TREE}' 시트에 없습니다.`,
+            '수전 회선은 최상위 계통(레벨 1)에 연결해야 합니다.'
+          );
+        } else {
+          const node = ctx.systemById.get(sid.value);
+          if (node && Number.isInteger(node.level.value) && node.level.value !== 1) {
+            rep.error(
+              sid,
+              'INCOMER_NOT_ROOT',
+              `계통 ${sid.value} ('${node.systemName.value}') 은(는) 레벨 ${node.level.value} 입니다. 수전 회선은 레벨 1 계통에만 연결됩니다.`,
+              `${S.SHEETS.ENERGY_TREE} 시트 ${node.level.cell} 을(를) 확인하세요.`
+            );
+          }
+          if (seenSystem.has(sid.value)) {
+            rep.error(sid, 'DUPLICATE_SYSTEM', `계통 ${sid.value} 에 수전 회선이 두 번 연결되었습니다. (${seenSystem.get(sid.value)} 셀)`);
+          } else seenSystem.set(sid.value, sid.cell);
+        }
+      }
+
+      const v = row.voltage;
+      if (Number.isFinite(v.value) && v.value > 0 && !codes.VOLTAGE_LEVELS.includes(v.value)) {
+        rep.warn(
+          v,
+          'UNUSUAL_VOLTAGE',
+          `수전전압 ${v.value}kV 는 표준 전압이 아닙니다.`,
+          `일반적인 값: ${codes.VOLTAGE_LEVELS.slice(0, 6).join(' / ')} kV. 단위가 V 로 입력되지 않았는지 확인하세요.`
+        );
+      }
+    }
+  }
+
+  // 8)변압기 — 제원 + 온도 감시 포인트
+  if (parsed.transformers.__exists && parsed.transformers.rows.length) {
+    const seen = new Map();
+    for (const row of parsed.transformers.rows) {
+      for (const spec of S.TRANSFORMER_SHEET.columns) checkField(rep, row[spec.key], spec, parsed);
+
+      const id = row.trId;
+      if (Number.isInteger(id.value)) {
+        if (seen.has(id.value)) {
+          rep.error(id, 'DUPLICATE_ID', `변압기ID ${id.value} 이(가) 중복되었습니다. (${seen.get(id.value)} 셀)`);
+        } else seen.set(id.value, id.cell);
+      }
+
+      const sid = row.systemId;
+      if (Number.isInteger(sid.value) && !systemIds.has(sid.value)) {
+        rep.error(
+          sid,
+          'UNKNOWN_SYSTEM',
+          `연결계통ID ${sid.value} 에 해당하는 에너지계통이 없습니다.`,
+          `'${S.SHEETS.ENERGY_TREE}' 시트의 에너지계통 ID 를 확인하세요.`
+        );
+      }
+
+      const p1 = row.primaryVoltage;
+      const p2 = row.secondaryVoltage;
+      if (Number.isFinite(p1.value) && Number.isFinite(p2.value) && p1.value > 0 && p2.value > 0) {
+        if (p1.value <= p2.value) {
+          rep.warn(
+            p1,
+            'TR_VOLTAGE_ORDER',
+            `1차전압(${p1.value}kV)이 2차전압(${p2.value}kV)보다 크지 않습니다.`,
+            `강압 변압기라면 값이 바뀌지 않았는지 ${p1.cell} · ${p2.cell} 을(를) 확인하세요.`
+          );
+        }
+      }
+
+      const vg = row.vectorGroup;
+      if (vg.value && !codes.VECTOR_GROUPS.some((g) => codes.normalizeKey(g) === codes.normalizeKey(vg.value))) {
+        const near = codes.closestMatch(vg.value, codes.VECTOR_GROUPS);
+        rep.warn(
+          vg,
+          'UNKNOWN_VECTOR_GROUP',
+          `결선 '${vg.value}' 은(는) 일반적인 표기가 아닙니다.`,
+          near ? `'${near}' 인가요?` : `예) ${codes.VECTOR_GROUPS.slice(0, 4).join(', ')}`
+        );
+      }
+
+      const cool = row.cooling;
+      if (cool.value && !codes.COOLING_TYPES.some((c) => codes.normalizeKey(c) === codes.normalizeKey(cool.value))) {
+        rep.warn(cool, 'UNKNOWN_COOLING', `냉각방식 '${cool.value}' 은(는) 일반적인 표기가 아닙니다.`, `예) ${codes.COOLING_TYPES.slice(0, 5).join(', ')}`);
+      }
+
+      // 온도 감시 포인트는 장비ID·채널을 함께 입력해야 한다
+      for (const [dk, ck, label] of [
+        ['windingTempDevice', 'windingTempChannel', '권선온도'],
+        ['oilTempDevice', 'oilTempChannel', '유온'],
+      ]) {
+        const d = row[dk];
+        const c = row[ck];
+        if ((d.value == null) !== (c.value == null)) {
+          const missing = d.value == null ? d : c;
+          rep.error(missing, 'PARTIAL_MAPPING', `${label} 감시의 ${missing.label} 이(가) 비어 있습니다. 장비ID 와 채널은 함께 입력해야 합니다.`);
+        } else if (d.value != null && c.value != null && !ctx.channels.has(`${d.value}-${c.value}`)) {
+          rep.error(
+            c,
+            'UNKNOWN_CHANNEL_MAPPING',
+            `${label} 감시 채널(장비 ${d.value} / 채널 ${c.value})이 '${S.SHEETS.CHANNEL}' 시트에 없습니다.`
+          );
+        }
+      }
+    }
+  }
+}
+
+/** 에너지트리의 v2 확장 열 검사 (전압·기기종류·정격·보호요소·구역) */
+function validateEnergyTreeV2(rep, parsed, ctx) {
+  if (!parsed.energyTree.__exists) return;
+  const protectionCodes = new Set(codes.PROTECTION_CODES.map((p) => p.code.toUpperCase()));
+
+  for (const row of parsed.energyTree.rows) {
+    const v = row.voltage;
+    if (Number.isFinite(v.value) && v.value > 0) {
+      if (v.value > 800) {
+        rep.error(
+          v,
+          'VOLTAGE_UNIT',
+          `전압 ${v.value} 는 kV 단위로는 비현실적입니다. V 로 입력하신 것 같습니다.`,
+          '예) 380V → 0.38, 22900V → 22.9'
+        );
+      } else if (!codes.VOLTAGE_LEVELS.includes(v.value)) {
+        rep.info(v, 'UNUSUAL_VOLTAGE', `전압 ${v.value}kV 는 표준 전압 목록에 없습니다.`, `표준: ${codes.VOLTAGE_LEVELS.join(' / ')}`);
+      }
+    }
+
+    const prot = row.protection;
+    if (prot.value) {
+      for (const raw of String(prot.value).split(/[,/·|]/)) {
+        const code = raw.trim().toUpperCase();
+        if (!code) continue;
+        if (!protectionCodes.has(code)) {
+          const near = codes.closestMatch(code, [...protectionCodes]);
+          rep.warn(
+            prot,
+            'UNKNOWN_PROTECTION',
+            `보호요소 '${raw.trim()}' 은(는) 정의된 코드가 아닙니다.`,
+            near ? `'${near}' 인가요? (ANSI 기기번호)` : '예) 50/51, 51G, 87T, 27, 59, 64, 81'
+          );
+        }
+      }
+    }
+
+    const zone = row.zoneCode;
+    if (zone.value && ctx.zoneCodes && ctx.zoneCodes.size && !ctx.zoneCodes.has(String(zone.value).trim())) {
+      const near = codes.closestMatch(zone.value, [...ctx.zoneCodes]);
+      rep.error(
+        zone,
+        'UNKNOWN_ZONE',
+        `구역코드 '${zone.value}' 이(가) '${S.SHEETS.ZONE}' 시트에 없습니다.`,
+        near ? `'${near}' 인가요?` : `'${S.SHEETS.ZONE}' 시트에 구역을 먼저 등록하세요.`
+      );
+    }
+
+    // 차단용량은 개폐기기에만 의미가 있다
+    const kind = row.deviceKind.value ? String(row.deviceKind.value).toUpperCase() : null;
+    const bc = row.breakingCapacity;
+    if (Number.isFinite(bc.value) && bc.value > 0 && kind && !['GCB', 'VCB', 'ACB', 'MCCB', 'LBS'].includes(kind)) {
+      rep.info(bc, 'BREAKING_ON_NON_BREAKER', `기기종류가 ${kind} 인데 차단용량이 입력되었습니다.`, '차단용량은 차단기(GCB/VCB/ACB/MCCB)에 입력하는 값입니다.');
+    }
+  }
+}
+
 /**
  * 전체 검증.
  * @returns {{issues:Array, errorCount:number, warningCount:number, summary:object}}
@@ -718,6 +946,18 @@ function validate(parsed) {
   validateDevices(rep, parsed, ctx);
   validateChannels(rep, parsed, ctx);
   validateEnergyTree(rep, parsed, ctx);
+
+  // v2 확장 — 계통 인덱스를 먼저 만들어 두고 참조 검사에 쓴다
+  ctx.systemById = new Map();
+  ctx.systemIds = new Set();
+  for (const row of parsed.energyTree.rows) {
+    if (Number.isInteger(row.systemId.value) && !ctx.systemById.has(row.systemId.value)) {
+      ctx.systemById.set(row.systemId.value, row);
+      ctx.systemIds.add(row.systemId.value);
+    }
+  }
+  validateV2Sheets(rep, parsed, ctx);
+  validateEnergyTreeV2(rep, parsed, ctx);
 
   // 사용되지 않은 채널 알림 (설비트리에는 있는데 에너지트리에 안 붙은 채널)
   const mapped = new Set(
@@ -751,6 +991,9 @@ function validate(parsed) {
       energyNodes: parsed.energyTree.rows.length,
       mains: ctx.rootCount,
       products: parsed.deviceProfiles.profiles.size,
+      incomerLines: parsed.incomers.rows.length,
+      transformers: parsed.transformers.rows.length,
+      zones: parsed.zones.rows.length,
     },
     ctx,
   };

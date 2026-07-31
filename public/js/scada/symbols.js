@@ -76,7 +76,95 @@ window.ScadaSymbols = (function () {
     return `<path class="nd-sym" d="M${cx} ${cy - r * 0.85} L${cx + r * 0.9} ${cy + r * 0.7} L${cx - r * 0.9} ${cy + r * 0.7} Z" />`;
   }
 
-  const REGISTRY = { utility, switchgear, motor, pv, heat, furnace, machine, load };
+
+  /** 변압기 — 겹친 두 원 (2권선) */
+  function transformer(cx, cy, r) {
+    const o = r * 0.42;
+    return `
+      <circle class="nd-sym" cx="${cx}" cy="${cy - o}" r="${r * 0.72}" />
+      <circle class="nd-sym" cx="${cx}" cy="${cy + o}" r="${r * 0.72}" />`;
+  }
+
+  /** 발전기 — 원 안에 G */
+  function generator(cx, cy, r) {
+    return `
+      <circle class="nd-sym" cx="${cx}" cy="${cy}" r="${r}" />
+      <text class="nd-sym-fill" x="${cx}" y="${cy + r * 0.38}" text-anchor="middle" font-size="${r * 1.15}" font-weight="700">G</text>`;
+  }
+
+  /** 역률개선용 콘덴서 — 평행 두 판 */
+  function capacitor(cx, cy, r) {
+    return `
+      <line class="nd-sym" x1="${cx}" y1="${cy - r}" x2="${cx}" y2="${cy - r * 0.28}" />
+      <line class="nd-sym" x1="${cx - r * 0.8}" y1="${cy - r * 0.28}" x2="${cx + r * 0.8}" y2="${cy - r * 0.28}" />
+      <line class="nd-sym" x1="${cx - r * 0.8}" y1="${cy + r * 0.16}" x2="${cx + r * 0.8}" y2="${cy + r * 0.16}" />
+      <line class="nd-sym" x1="${cx}" y1="${cy + r * 0.16}" x2="${cx}" y2="${cy + r}" />`;
+  }
+
+  /** ESS / 축전지 — 길고 짧은 판 반복 */
+  function ess(cx, cy, r) {
+    const g = r * 0.42;
+    let out = '';
+    for (let i = -1; i <= 1; i++) {
+      out += `<line class="nd-sym" x1="${cx + i * g - r * 0.1}" y1="${cy - r * 0.75}" x2="${cx + i * g - r * 0.1}" y2="${cy + r * 0.75}" />`;
+      out += `<line class="nd-sym" x1="${cx + i * g + r * 0.16}" y1="${cy - r * 0.38}" x2="${cx + i * g + r * 0.16}" y2="${cy + r * 0.38}" />`;
+    }
+    return out;
+  }
+
+  /** UPS — 사각 안에 물결(교류)과 직선(직류) */
+  function ups(cx, cy, r) {
+    const a = r * 0.9;
+    return `
+      <rect class="nd-sym" x="${cx - a}" y="${cy - a * 0.7}" width="${a * 2}" height="${a * 1.4}" rx="2" />
+      <line class="nd-sym" x1="${cx - a * 0.6}" y1="${cy + a * 0.45}" x2="${cx + a * 0.6}" y2="${cy - a * 0.45}" />
+      <path class="nd-sym" d="M${cx - a * 0.62} ${cy - a * 0.22} q ${a * 0.16} ${-a * 0.3} ${a * 0.32} 0" />
+      <line class="nd-sym" x1="${cx + a * 0.2}" y1="${cy + a * 0.3}" x2="${cx + a * 0.6}" y2="${cy + a * 0.3}" />`;
+  }
+
+  /** 분전반 — 칸 나뉜 상자 */
+  function panel(cx, cy, r) {
+    const a = r * 0.92;
+    return `
+      <rect class="nd-sym" x="${cx - a}" y="${cy - a * 0.8}" width="${a * 2}" height="${a * 1.6}" rx="1.5" />
+      <line class="nd-sym" x1="${cx - a}" y1="${cy - a * 0.2}" x2="${cx + a}" y2="${cy - a * 0.2}" />
+      <line class="nd-sym" x1="${cx - a}" y1="${cy + a * 0.3}" x2="${cx + a}" y2="${cy + a * 0.3}" />`;
+  }
+
+  /** 개폐기(단로기·LBS) — 열린 칼날 */
+  function switchSym(cx, cy, r) {
+    return `
+      <line class="nd-sym" x1="${cx}" y1="${cy - r}" x2="${cx}" y2="${cy - r * 0.45}" />
+      <line class="nd-sym" x1="${cx}" y1="${cy - r * 0.45}" x2="${cx + r * 0.75}" y2="${cy + r * 0.5}" />
+      <line class="nd-sym" x1="${cx}" y1="${cy + r * 0.5}" x2="${cx}" y2="${cy + r}" />
+      <circle class="nd-sym-fill" cx="${cx}" cy="${cy - r * 0.45}" r="${r * 0.13}" />
+      <circle class="nd-sym-fill" cx="${cx}" cy="${cy + r * 0.5}" r="${r * 0.13}" />`;
+  }
+
+  /** 차단기 심볼(노드용) — 사각 + 통과선 */
+  function breakerSym(cx, cy, r) {
+    const a = r * 0.62;
+    return `
+      <line class="nd-sym" x1="${cx}" y1="${cy - r}" x2="${cx}" y2="${cy - a}" />
+      <rect class="nd-sym" x="${cx - a}" y="${cy - a}" width="${a * 2}" height="${a * 2}" rx="1.5" />
+      <line class="nd-sym" x1="${cx}" y1="${cy + a}" x2="${cx}" y2="${cy + r}" />`;
+  }
+
+  /** 모선 — 굵은 가로 막대 */
+  function busbar(cx, cy, r) {
+    return `<line class="nd-sym" x1="${cx - r}" y1="${cy}" x2="${cx + r}" y2="${cy}" stroke-width="4" stroke-linecap="round" />`;
+  }
+
+  /** 접지 (노드용) */
+  function groundSym(cx, cy, r) {
+    return ground(cx, cy, r * 1.4);
+  }
+
+  const REGISTRY = {
+    utility, switchgear, motor, pv, heat, furnace, machine, load,
+    transformer, generator, capacitor, ess, ups, panel,
+    switch: switchSym, breaker: breakerSym, busbar, ground: groundSym,
+  };
 
   /** 심볼 마크업 (알 수 없는 종류는 일반 부하로) */
   function draw(kind, cx, cy, r) {
@@ -109,14 +197,11 @@ window.ScadaSymbols = (function () {
   }
 
   const LABELS = {
-    utility: '수전',
-    switchgear: '수배전반',
-    motor: '전동기',
-    pv: '태양광',
-    heat: '열설비',
-    furnace: '로',
-    machine: '생산설비',
-    load: '부하',
+    utility: '수전', switchgear: '수배전반', motor: '전동기', pv: '태양광',
+    heat: '열설비', furnace: '로', machine: '생산설비', load: '부하',
+    transformer: '변압기', generator: '발전기', capacitor: '콘덴서',
+    ess: 'ESS', ups: 'UPS', panel: '분전반',
+    switch: '개폐기', breaker: '차단기', busbar: '모선', ground: '접지',
   };
 
   return { draw, breaker, mof, ground, esc, LABELS, kinds: Object.keys(REGISTRY) };

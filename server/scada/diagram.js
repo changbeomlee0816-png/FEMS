@@ -37,12 +37,37 @@ function symbolFromName(name) {
   return null;
 }
 
-function symbolFor({ level, hasChildren, equipmentCode, name }) {
+function symbolFor({ level, hasChildren, equipmentCode, name, deviceKind }) {
+  // v2 의 기기종류가 있으면 그것이 가장 정확하다
+  if (deviceKind && codes.SYMBOL_BY_DEVICE_KIND[deviceKind]) return codes.SYMBOL_BY_DEVICE_KIND[deviceKind];
   if (level === 1) return 'utility';
   if (equipmentCode && codes.SYMBOL_BY_EQUIPMENT[equipmentCode]) return codes.SYMBOL_BY_EQUIPMENT[equipmentCode];
   const guess = symbolFromName(name);
   if (guess) return guess;
   return hasChildren ? 'switchgear' : 'load';
+}
+
+/** 정격 표기 문자열 — 사진의 "24kV 1250A 25kA" 같은 한 줄 */
+function ratingLabel({ voltage, ratedCurrent, breakingCapacity }) {
+  const parts = [];
+  if (voltage != null) parts.push(voltage >= 1 ? `${voltage}kV` : `${Math.round(voltage * 1000)}V`);
+  if (ratedCurrent != null) parts.push(`${ratedCurrent}A`);
+  if (breakingCapacity != null) parts.push(`${breakingCapacity}kA`);
+  return parts.join(' ');
+}
+
+/** 변압기 제원 두 줄 — "154/22.9kV 100MVA" + "YNyn0 %Z13 ONAN" */
+function transformerLabel(tr) {
+  if (!tr) return null;
+  const kva = tr.capacity;
+  const cap = kva == null ? null : kva >= 1000 ? `${+(kva / 1000).toFixed(kva % 1000 ? 1 : 0)}MVA` : `${kva}kVA`;
+  const line1 = [
+    tr.primaryVoltage != null && tr.secondaryVoltage != null ? `${tr.primaryVoltage}/${tr.secondaryVoltage}kV` : null,
+    cap,
+  ].filter(Boolean).join(' ');
+  const line2 = [tr.vectorGroup, tr.impedance != null ? `%Z${tr.impedance}` : null, tr.cooling]
+    .filter(Boolean).join(' ');
+  return { line1, line2 };
 }
 
 /** 표시용 주요 계측 포인트 (도면 위 값 칩) */
@@ -148,7 +173,13 @@ function buildDiagram(model, opts = {}) {
       systemId: node.systemId,
       mainId,
       kind: depth === 1 ? 'main' : kids.length ? 'group' : 'load',
-      symbol: symbolFor({ level: depth, hasChildren: kids.length > 0, equipmentCode: channel && channel.equipmentCode, name: node.name }),
+      symbol: symbolFor({
+        level: depth,
+        hasChildren: kids.length > 0,
+        equipmentCode: channel && channel.equipmentCode,
+        name: node.name,
+        deviceKind: node.deviceKind,
+      }),
       name: node.name,
       depth,
       x,
@@ -165,9 +196,27 @@ function buildDiagram(model, opts = {}) {
       facility: channel
         ? { loadName: channel.loadName, equipmentCode: channel.equipmentCode, groupId: channel.groupId, groupName: channel.groupName, facilityId: channel.facilityId, facilityName: channel.facilityName }
         : null,
-      // 도면에서 바로 편집 가능한 정격값 (엑셀에 없는 값이므로 기본 null)
-      ratedPower: depth === 1 ? model.site.contractPower : null,
+      // 도면에서 바로 편집 가능한 정격값.
+      // v2 로 정격용량을 적었으면 그 값이 우선하고, 없으면 기존처럼 계약전력을 쓴다.
+      ratedPower: node.ratedPower != null ? node.ratedPower : depth === 1 ? model.site.contractPower : null,
       capacity: depth === 1 ? model.site.receivingCapacity : null,
+
+      // ── v2 : 실제 SCADA 표기용 정보 ─────────────────────────────
+      deviceKind: node.deviceKind || null,
+      voltage: node.voltage != null ? node.voltage : null,
+      rating: ratingLabel(node) || null,
+      ratedCurrent: node.ratedCurrent != null ? node.ratedCurrent : null,
+      breakingCapacity: node.breakingCapacity != null ? node.breakingCapacity : null,
+      protection: node.protection && node.protection.length ? node.protection : [],
+      zoneCode: node.zoneCode || null,
+      zoneName: node.zoneCode && lookup.zoneByCode.has(node.zoneCode) ? lookup.zoneByCode.get(node.zoneCode).name : null,
+      transformer: (() => {
+        const tr = lookup.transformerBySystem.get(node.systemId);
+        if (!tr) return null;
+        return { ...tr, label: transformerLabel(tr) };
+      })(),
+      incomer: lookup.incomerBySystem.get(node.systemId) || null,
+
       points,
       display: primaryPoints(points),
       locked: false,
@@ -194,8 +243,9 @@ function buildDiagram(model, opts = {}) {
     mainCards: mains.map((m) => ({
       nodeId: m.id,
       name: m.name,
-      contractPower: model.site.contractPower,
+      contractPower: m.incomer && m.incomer.contractPower != null ? m.incomer.contractPower : model.site.contractPower,
       receivingCapacity: model.site.receivingCapacity,
+      incomer: m.incomer || null,
       points: m.display,
     })),
     // 계통(레벨2) 부하 비교 막대
@@ -223,6 +273,7 @@ function buildDiagram(model, opts = {}) {
     dashboard,
     // 편집기 팔레트에 그대로 노출되는 코드표
     codeTables: model.codeTables,
+    zones: model.zones || [],
   };
 }
 

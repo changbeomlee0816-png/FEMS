@@ -65,6 +65,21 @@ window.ScadaLocalApi = (function (req) {
     /** 서버 없이 동작 중임을 화면이 알 수 있게 하는 표식 */
     standalone: true,
 
+    /**
+     * 양식 다운로드. 브라우저에는 exceljs 가 없으므로 즉석 생성이 불가능하다.
+     * 대신 빌드 시점에 server/scada/template.js 로 만들어 embed 해 둔 바이트를 쓴다.
+     * (window.SCADA_TEMPLATES 는 단일 HTML 빌드가 주입한다)
+     */
+    async template(mode) {
+      const store = window.SCADA_TEMPLATES || {};
+      const b64 = store[mode === 'blank' ? 'blank' : 'example'];
+      if (!b64) throw new Error('이 빌드에는 양식이 포함되어 있지 않습니다.');
+      const bin = atob(b64);
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      return out;
+    },
+
     async schema() {
       return {
         sheets: schemaMod.SHEETS,
@@ -222,7 +237,10 @@ window.ScadaLocalApi = (function (req) {
 
       for (const pt of diagramMod.collectPoints(p.diagram)) {
         const node = nodeById.get(pt.nodeId);
-        const base = node && node.kind === 'main' ? Number(p.model.site.contractPower) || 800 : 45;
+        // 노드에 정격이 있으면 그 값을 기준으로 만든다. 없을 때만 계약전력/기본값으로 떨어진다.
+        // (이렇게 해야 계약전력 대비 사용률이 현실적인 범위로 나온다)
+        const rated = node && Number(node.ratedPower) > 0 ? Number(node.ratedPower) : null;
+        const base = rated ? rated * 0.72 : node && node.kind === 'main' ? Number(p.model.site.contractPower) || 800 : 45;
         const wave = 0.75 + 0.25 * Math.sin(t + (pt.deviceId || 1) * 0.7 + (pt.channel || 1) * 0.3);
         const byRole = {
           power: base * wave,

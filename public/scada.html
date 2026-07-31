@@ -52,7 +52,11 @@
               <input type="checkbox" id="tolerantChk" />
               오류가 있어도 도면 미리보기 생성
             </label>
-            <button class="sc-btn sc-btn-ghost" id="schemaBtn">양식 안내 보기</button>
+            <div class="sc-tool-group">
+              <button class="sc-btn sc-btn-primary" id="tplExampleBtn">양식 다운로드 (기입 예시)</button>
+              <button class="sc-btn sc-btn-ghost" id="tplBlankBtn">빈 양식</button>
+              <button class="sc-btn sc-btn-ghost" id="schemaBtn">양식 안내 보기</button>
+            </div>
           </div>
 
           <div id="uploadStatus" class="sc-status" hidden></div>
@@ -128,6 +132,7 @@
                 <input type="checkbox" id="liveChk" /> 실시간
               </label>
               <button class="sc-btn sc-btn-ghost" id="demoBtn" title="계측기 연동 전 화면 확인용 데모 값">데모 값 주입</button>
+              <button class="sc-btn sc-btn-ghost" id="exportPdfBtn">PDF</button>
               <button class="sc-btn sc-btn-ghost" id="exportSvgBtn">SVG</button>
               <button class="sc-btn sc-btn-ghost" id="exportJsonBtn">JSON</button>
               <button class="sc-btn sc-btn-primary" id="saveBtn">저장</button>
@@ -216,6 +221,7 @@
     <script src="/js/scada/symbols.js"></script>
     <script src="/js/scada/charts.js"></script>
     <script src="/js/scada/report.js"></script>
+    <script src="/js/scada/pdf.js"></script>
     <script src="/js/scada/canvas.js"></script>
     <script src="/js/scada/app.js"></script>
   </body>

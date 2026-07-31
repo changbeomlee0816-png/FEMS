@@ -15,6 +15,11 @@ const SHEETS = {
   DEVICE_PROFILE: '4) 장비속성',
   CODE_RULE: '5) 코드규칙',
   TARIFF: '6) 요금제목록',
+  // ── v2 (선택) — 실제 SCADA 단선결선도 수준으로 도면을 그리기 위한 시트.
+  // 없어도 기존처럼 동작하고, 있으면 도면이 그만큼 상세해진다.
+  INCOMER: '7) 수전계통',
+  TRANSFORMER: '8) 변압기',
+  ZONE: '9) 구역',
 };
 
 /** 없으면 도면 생성이 불가능한 시트 */
@@ -117,6 +122,66 @@ const ENERGY_TREE_SHEET = {
     { key: 'parentId', col: 'E', label: '연결계통ID', required: true, type: 'int', min: 0 },
     { key: 'deviceId', col: 'F', label: '장비ID', type: 'int', min: 1 },
     { key: 'channel', col: 'G', label: '채널정보', type: 'int', min: 1 },
+    // ── v2 확장 (모두 선택). 채우면 도면에 정격·보호요소가 함께 그려진다.
+    { key: 'voltage', col: 'H', label: '전압(kV)', type: 'number', min: 0 },
+    { key: 'deviceKind', col: 'I', label: '기기종류', type: 'enum:deviceKind' },
+    { key: 'ratedCurrent', col: 'J', label: '정격전류(A)', type: 'number', min: 0 },
+    { key: 'breakingCapacity', col: 'K', label: '차단용량(kA)', type: 'number', min: 0 },
+    { key: 'ratedPower', col: 'L', label: '정격용량(kW)', type: 'number', min: 0 },
+    { key: 'protection', col: 'M', label: '보호요소' },
+    { key: 'zoneCode', col: 'N', label: '구역코드' },
+  ],
+};
+
+// ── 7)수전계통 : 한전 수전 회선 (RCP-1 / RCP-2 처럼 회선별로 한 행) ──
+const INCOMER_SHEET = {
+  headerRow: 2,
+  startRow: 3,
+  identityCols: ['A', 'B', 'C'],
+  columns: [
+    { key: 'lineId', col: 'A', label: '회선ID', required: true, type: 'int', min: 1, unique: true },
+    { key: 'lineName', col: 'B', label: '회선명', required: true },
+    { key: 'substation', col: 'C', label: '공급 변전소' },
+    { key: 'voltage', col: 'D', label: '수전전압(kV)', required: true, type: 'number', min: 0 },
+    { key: 'contractPower', col: 'E', label: '계약전력(kW)', type: 'number', min: 0 },
+    { key: 'cableSpec', col: 'F', label: '케이블 규격' },
+    { key: 'feedMode', col: 'G', label: '운전구분', type: 'enum:feedMode' },
+    { key: 'systemId', col: 'H', label: '연결계통ID', required: true, type: 'int', min: 1 },
+  ],
+};
+
+// ── 8)변압기 : TR 제원 + 온도 감시 포인트 ─────────────────────────
+const TRANSFORMER_SHEET = {
+  headerRow: 2,
+  startRow: 3,
+  identityCols: ['A', 'B'],
+  columns: [
+    { key: 'trId', col: 'A', label: '변압기ID', required: true, type: 'int', min: 1, unique: true },
+    { key: 'name', col: 'B', label: '변압기명', required: true },
+    { key: 'systemId', col: 'C', label: '연결계통ID', required: true, type: 'int', min: 1 },
+    { key: 'primaryVoltage', col: 'D', label: '1차전압(kV)', required: true, type: 'number', min: 0 },
+    { key: 'secondaryVoltage', col: 'E', label: '2차전압(kV)', required: true, type: 'number', min: 0 },
+    { key: 'capacity', col: 'F', label: '용량(kVA)', required: true, type: 'number', min: 0 },
+    { key: 'vectorGroup', col: 'G', label: '결선' },
+    { key: 'impedance', col: 'H', label: '%임피던스', type: 'number', min: 0, max: 100 },
+    { key: 'cooling', col: 'I', label: '냉각방식' },
+    { key: 'windingTempDevice', col: 'J', label: '권선온도 장비ID', type: 'int', min: 1 },
+    { key: 'windingTempChannel', col: 'K', label: '권선온도 채널', type: 'int', min: 1 },
+    { key: 'oilTempDevice', col: 'L', label: '유온 장비ID', type: 'int', min: 1 },
+    { key: 'oilTempChannel', col: 'M', label: '유온 채널', type: 'int', min: 1 },
+  ],
+};
+
+// ── 9)구역 : SCADA 화면 분할 (변전동 / 기계전기실 / P1F EAST …) ────
+const ZONE_SHEET = {
+  headerRow: 2,
+  startRow: 3,
+  identityCols: ['A', 'B'],
+  columns: [
+    { key: 'zoneCode', col: 'A', label: '구역코드', required: true, unique: true },
+    { key: 'zoneName', col: 'B', label: '구역명', required: true },
+    { key: 'order', col: 'C', label: '표시순서', type: 'int', min: 1 },
+    { key: 'note', col: 'D', label: '설명' },
   ],
 };
 
@@ -163,4 +228,7 @@ module.exports = {
   DEVICE_PROFILE_SHEET,
   CODE_RULE_SHEET,
   TARIFF_SHEET,
+  INCOMER_SHEET,
+  TRANSFORMER_SHEET,
+  ZONE_SHEET,
 };

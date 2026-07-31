@@ -105,6 +105,13 @@ window.ScadaCanvas = (function () {
       if (bus) {
         parts.push(`<line class="wire${liveCls}" x1="${cx}" y1="${node.y + node.h}" x2="${cx}" y2="${bus.y}" />`);
         parts.push(`<line class="bus${liveCls}" x1="${bus.x1}" y1="${bus.y}" x2="${bus.x2}" y2="${bus.y}" />`);
+        // 모선 전압 표기 — 사진의 "6.9kV SWGR-1, 3150A, 40kA BUS" 같은 라벨
+        const busLabel = node.voltage != null
+          ? (node.voltage >= 1 ? `${node.voltage}kV` : `${Math.round(node.voltage * 1000)}V`) + ' BUS'
+          : null;
+        if (busLabel) {
+          parts.push(`<text class="bus-label" x="${bus.x1}" y="${bus.y - 7}">${esc(busLabel)}</text>`);
+        }
         for (const kid of bus.kids) {
           const kx = kid.x + kid.w / 2;
           const kst = statusOf(kid);
@@ -140,11 +147,13 @@ window.ScadaCanvas = (function () {
     const symCy = node.y + node.h / 2;
     const textX = node.x + 46;
 
-    const sub = node.facility && node.facility.equipmentCode
-      ? node.facility.equipmentCode
-      : node.device
-        ? `#${node.device.deviceId}/CH${node.channel}`
-        : Sym.LABELS[node.symbol] || '';
+    const sub = node.deviceKind
+      ? node.deviceKind + (node.facility && node.facility.equipmentCode ? ` · ${node.facility.equipmentCode}` : '')
+      : node.facility && node.facility.equipmentCode
+        ? node.facility.equipmentCode
+        : node.device
+          ? `#${node.device.deviceId}/CH${node.channel}`
+          : Sym.LABELS[node.symbol] || '';
 
     let valueLine = '';
     if (p) {
@@ -155,14 +164,52 @@ window.ScadaCanvas = (function () {
       valueLine = `<text class="nd-sub" x="${textX}" y="${node.y + 50}" text-anchor="start">계측 미연결</text>`;
     }
 
+    // ── v2 표기 ────────────────────────────────────────────────
+    // 정격은 박스 위 작은 태그로, 보호요소는 박스 아래 칩으로 붙인다.
+    // 실제 관제화면에서 차단기 옆에 "24kV 1250A 25kA" 와 50/51 박스가
+    // 따로 붙어 있는 배치를 그대로 따랐다.
+    let extras = '';
+    if (node.rating) {
+      const tw = node.rating.length * 5.4 + 10;
+      extras += `
+        <rect class="rating-bg" x="${node.x + node.w - tw}" y="${node.y - 15}" width="${tw}" height="13" rx="2" />
+        <text class="rating-tx" x="${node.x + node.w - tw / 2}" y="${node.y - 5}" text-anchor="middle">${esc(node.rating)}</text>`;
+    }
+    if (node.protection && node.protection.length) {
+      let px = node.x;
+      for (const code of node.protection.slice(0, 5)) {
+        const cw = code.length * 5.2 + 8;
+        extras += `
+          <rect class="prot-bg" x="${px}" y="${node.y + node.h + 4}" width="${cw}" height="12" rx="1.5" />
+          <text class="prot-tx" x="${px + cw / 2}" y="${node.y + node.h + 13}" text-anchor="middle">${esc(code)}</text>`;
+        px += cw + 3;
+      }
+    }
+    // 변압기는 제원을 박스 오른쪽에 두 줄로 붙인다
+    if (node.transformer && node.transformer.label) {
+      const L = node.transformer.label;
+      if (L.line1) extras += `<text class="tr-spec" x="${node.x + node.w + 7}" y="${node.y + 24}">${esc(L.line1)}</text>`;
+      if (L.line2) extras += `<text class="tr-spec dim" x="${node.x + node.w + 7}" y="${node.y + 36}">${esc(L.line2)}</text>`;
+    }
+
+    const tip = [
+      node.name,
+      node.deviceKind ? `종류 ${node.deviceKind}` : null,
+      node.rating || null,
+      node.protection && node.protection.length ? `보호 ${node.protection.join(', ')}` : null,
+      node.zoneName ? `구역 ${node.zoneName}` : null,
+      node.device ? `${node.device.productName || ''} (${node.device.ip || ''})` : null,
+    ].filter(Boolean).join(' · ');
+
     return `
       <g class="${cls}" data-id="${esc(node.id)}" role="button" tabindex="0" aria-label="${esc(node.name)}">
+        ${extras}
         <rect class="nd-box" x="${node.x}" y="${node.y}" width="${node.w}" height="${node.h}" />
         ${Sym.draw(node.symbol, symCx, symCy, 13)}
         <text class="nd-name" x="${textX}" y="${node.y + 21}" text-anchor="start">${esc(clip(node.name, 9))}</text>
         <text class="nd-sub" x="${textX}" y="${node.y + 34}" text-anchor="start">${esc(clip(sub, 13))}</text>
         ${valueLine}
-        <title>${esc(node.name)}${node.device ? ` · ${esc(node.device.productName || '')} (${esc(node.device.ip || '')})` : ''}</title>
+        <title>${esc(tip)}</title>
       </g>`;
   }
 
@@ -364,6 +411,13 @@ window.ScadaCanvas = (function () {
     .cb{fill:#0a1020;stroke:#46577c;stroke-width:1.8}
     .cb.is-closed{fill:#35d0a5;stroke:#35d0a5}
     .cb.is-open{fill:#0a1020;stroke:#c98500}
+    .rating-bg{fill:rgba(217,164,65,.13);stroke:rgba(217,164,65,.45);stroke-width:.8}
+    .rating-tx{fill:#e7c07a;font-size:8.5px;font-weight:600}
+    .prot-bg{fill:rgba(57,135,229,.16);stroke:rgba(57,135,229,.5);stroke-width:.8}
+    .prot-tx{fill:#9cc4f5;font-size:8px;font-weight:700}
+    .tr-spec{fill:#c9d6ee;font-size:9px;font-weight:600}
+    .tr-spec.dim{fill:#6d80a6;font-weight:400}
+    .bus-label{fill:#6d80a6;font-size:9.5px}
     text{font-family:"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
   `;
 

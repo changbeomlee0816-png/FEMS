@@ -59,7 +59,7 @@ function wrapModule(name, source) {
   return `__def(${JSON.stringify(name)}, function (module, exports, require) {\n${source}\n});\n`;
 }
 
-function build(outPath, opts = {}) {
+async function build(outPath, opts = {}) {
   // ── 1) 서버 로직 번들 ──────────────────────────────────────────
   const bundle = [cjsShim()];
   for (const name of SERVER_MODULES) {
@@ -67,7 +67,7 @@ function build(outPath, opts = {}) {
   }
 
   // ── 2) 화면 코드 (서버판과 동일 파일) ──────────────────────────
-  const ui = ['xlsx-lite', 'symbols', 'charts', 'report', 'canvas'].map((n) => read(`public/js/scada/${n}.js`));
+  const ui = ['xlsx-lite', 'symbols', 'charts', 'report', 'pdf', 'canvas'].map((n) => read(`public/js/scada/${n}.js`));
 
   // ── 3) 샘플 엑셀 (링크만 받은 사람도 바로 시험해 볼 수 있도록) ──
   const samples = {};
@@ -78,6 +78,13 @@ function build(outPath, opts = {}) {
   if (!samples['sample-good']) {
     throw new Error('샘플 엑셀이 없습니다. 먼저 `npm run sample` 을 실행하세요.');
   }
+
+  // ── 3-2) 양식 (브라우저에는 exceljs 가 없으므로 빌드 시 만들어 embed) ──
+  const { templateBuffer } = require('../server/scada/template');
+  const templates = {
+    example: Buffer.from(await templateBuffer({ mode: 'example' })).toString('base64'),
+    blank: Buffer.from(await templateBuffer({ mode: 'blank' })).toString('base64'),
+  };
 
   // ── 4) 마크업: public/scada.html 의 body 안쪽을 그대로 사용 ────
   const html = read('public/scada.html');
@@ -139,6 +146,11 @@ ${bundle.join('\n')}
 
 <script>
 ${ui.join('\n\n')}
+</script>
+
+<script>
+/* 양식은 빌드 시 server/scada/template.js 로 만들어 여기에 실어 둔다 */
+window.SCADA_TEMPLATES = ${JSON.stringify(templates)};
 </script>
 
 <script>
@@ -211,8 +223,12 @@ if (require.main === module) {
   const args = process.argv.slice(2);
   const fragment = args.includes('--fragment');
   const out = args.filter((a) => !a.startsWith('--'))[0] || path.join(ROOT, 'dist', 'scada-standalone.html');
-  const r = build(out, { fragment });
-  console.log(`빌드 완료: ${r.outPath} (${Math.round(r.bytes / 1024)}KB${r.fragment ? ', fragment' : ''})`);
+  build(out, { fragment })
+    .then((r) => console.log(`빌드 완료: ${r.outPath} (${Math.round(r.bytes / 1024)}KB${r.fragment ? ', fragment' : ''})`))
+    .catch((e) => {
+      console.error(e);
+      process.exit(1);
+    });
 }
 
 module.exports = { build };

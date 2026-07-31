@@ -128,6 +128,75 @@ const SYMBOL_BY_EQUIPMENT = {
   용접기: 'machine',
 };
 
+
+// ── 기기종류 코드 (SCADA 단선결선도 표기) ──────────────────────────
+// 실제 관제화면(변전소 HMI)에 등장하는 기기들. 종류에 따라 도면 심볼과
+// 표기할 정격 항목(정격전류/차단용량/용량)이 달라진다.
+const DEVICE_KINDS = [
+  { code: 'INCOMER', name: '수전점', group: '수전', symbol: 'utility' },
+  { code: 'GCB', name: '가스차단기', group: '개폐기기', symbol: 'breaker' },
+  { code: 'VCB', name: '진공차단기', group: '개폐기기', symbol: 'breaker' },
+  { code: 'ACB', name: '기중차단기', group: '개폐기기', symbol: 'breaker' },
+  { code: 'MCCB', name: '배선용차단기', group: '개폐기기', symbol: 'breaker' },
+  { code: 'LBS', name: '부하개폐기', group: '개폐기기', symbol: 'switch' },
+  { code: 'DS', name: '단로기', group: '개폐기기', symbol: 'switch' },
+  { code: 'ES', name: '접지개폐기', group: '개폐기기', symbol: 'ground' },
+  { code: 'ATS', name: '자동절체스위치', group: '개폐기기', symbol: 'switch' },
+  { code: 'TR', name: '변압기', group: '변압', symbol: 'transformer' },
+  { code: 'BUS', name: '모선', group: '모선', symbol: 'busbar' },
+  { code: 'MOF', name: '계기용변성기', group: '계측', symbol: 'mof' },
+  { code: 'CAP', name: '역률개선용콘덴서', group: '보상', symbol: 'capacitor' },
+  { code: 'GEN', name: '발전기', group: '전원', symbol: 'generator' },
+  { code: 'PV', name: '태양광', group: '전원', symbol: 'pv' },
+  { code: 'ESS', name: '에너지저장장치', group: '전원', symbol: 'ess' },
+  { code: 'UPS', name: '무정전전원장치', group: '전원', symbol: 'ups' },
+  { code: 'MOTOR', name: '전동기부하', group: '부하', symbol: 'motor' },
+  { code: 'LOAD', name: '일반부하', group: '부하', symbol: 'load' },
+  { code: 'PANEL', name: '분전반', group: '부하', symbol: 'panel' },
+];
+
+/** 기기종류 → 도면 심볼 */
+const SYMBOL_BY_DEVICE_KIND = Object.fromEntries(DEVICE_KINDS.map((d) => [d.code, d.symbol]));
+
+// ── 보호계전 요소 (ANSI/IEEE Device Number) ────────────────────────
+// 관제화면의 각 인출반에 표기되는 보호요소. 도면에서는 기기 옆 작은
+// 박스로 나열된다 (사진의 50/51 · 51G · 87T 같은 표기).
+const PROTECTION_CODES = [
+  { code: '27', name: '부족전압' },
+  { code: '32', name: '역전력' },
+  { code: '32P', name: '역전력(유효)' },
+  { code: '46', name: '역상과전류' },
+  { code: '47', name: '결상/역상전압' },
+  { code: '49', name: '과부하(열동)' },
+  { code: '50', name: '순시과전류' },
+  { code: '51', name: '한시과전류' },
+  { code: '50N', name: '순시지락과전류' },
+  { code: '51N', name: '한시지락과전류' },
+  { code: '51G', name: '지락과전류' },
+  { code: '59', name: '과전압' },
+  { code: '59N', name: '지락과전압' },
+  { code: '64', name: '지락' },
+  { code: '67', name: '방향과전류' },
+  { code: '67N', name: '방향지락' },
+  { code: '81', name: '주파수' },
+  { code: '86', name: '록아웃' },
+  { code: '87T', name: '변압기 차동' },
+  { code: '87B', name: '모선 차동' },
+  { code: '87L', name: '선로 차동' },
+];
+
+/** 표준 전압 레벨(kV) — 표기 정규화와 오입력 감지에 쓴다 */
+const VOLTAGE_LEVELS = [154, 66, 22.9, 6.6, 6.9, 3.3, 0.44, 0.4, 0.38, 0.22, 0.208];
+
+/** 변압기 결선 표기 */
+const VECTOR_GROUPS = ['Dyn11', 'Dyn1', 'Yyn0', 'YNyn0', 'YNd1', 'Dd0', 'Dy11', 'Yd1', 'Yzn11'];
+
+/** 변압기 냉각방식 */
+const COOLING_TYPES = ['ONAN', 'ONAF', 'OFAF', 'ODAF', 'AN', 'AF', 'OA', 'FA', 'OA/FA'];
+
+/** 수전 회선 운전구분 */
+const FEED_MODES = ['상시', '예비', '상시/예비', '병렬'];
+
 /** 문자열 정규화: 공백/하이픈 제거 + 소문자. 'Accura 2300' 과 'Accura2300' 을 같은 값으로 본다. */
 function normalizeKey(v) {
   return String(v == null ? '' : v).replace(/[\s_\-.]/g, '').toLowerCase();
@@ -178,6 +247,13 @@ module.exports = {
   STAT_TYPES,
   POINT_ROLES,
   SYMBOL_BY_EQUIPMENT,
+  DEVICE_KINDS,
+  SYMBOL_BY_DEVICE_KIND,
+  PROTECTION_CODES,
+  VOLTAGE_LEVELS,
+  VECTOR_GROUPS,
+  COOLING_TYPES,
+  FEED_MODES,
   normalizeKey,
   closestMatch,
 };

@@ -228,6 +228,18 @@ function parseCodeTables(wb) {
   };
 }
 
+
+// ── 7)수전계통 · 8)변압기 · 9)구역 (v2, 선택) ─────────────────────
+/** 스키마만 다른 동일 구조의 표 시트를 공통으로 읽는다. */
+function parseTable(wb, sheetName, spec) {
+  const sh = wb.sheet(sheetName);
+  const rows = [];
+  for (const r of sh.dataRows(spec.startRow, spec.identityCols)) {
+    rows.push(readRow(sh, spec, r));
+  }
+  return { __sheet: sh.name, __exists: sh.exists, rows };
+}
+
 /** 워크북 전체 파싱 */
 function parseWorkbook(wb) {
   return {
@@ -238,7 +250,10 @@ function parseWorkbook(wb) {
     energyTree: parseEnergyTree(wb),
     deviceProfiles: parseDeviceProfiles(wb),
     codeTables: parseCodeTables(wb),
+    incomers: parseTable(wb, S.SHEETS.INCOMER, S.INCOMER_SHEET),
+    transformers: parseTable(wb, S.SHEETS.TRANSFORMER, S.TRANSFORMER_SHEET),
+    zones: parseTable(wb, S.SHEETS.ZONE, S.ZONE_SHEET),
   };
 }
 
-module.exports = { parseWorkbook, field, asNumber, asText, asDate };
+module.exports = { parseWorkbook, parseTable, field, asNumber, asText, asDate };
