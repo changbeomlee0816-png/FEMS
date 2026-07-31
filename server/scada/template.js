@@ -17,6 +17,7 @@
 const ExcelJS = require('exceljs');
 const S = require('./schema');
 const codes = require('./codes');
+const { normalizeZipTimestamps } = require('./zip-normalize');
 
 // ── 서식 ────────────────────────────────────────────────────────────
 const C = {
@@ -574,10 +575,13 @@ async function buildTemplate(opts = {}) {
   return wb;
 }
 
-/** 양식 → xlsx 버퍼 */
+/**
+ * 양식 → xlsx 버퍼.
+ * 빌드 산출물에 embed 되므로 실행 시각과 무관하게 항상 같은 바이트가 나와야 한다.
+ */
 async function templateBuffer(opts) {
   const wb = await buildTemplate(opts);
-  return wb.xlsx.writeBuffer();
+  return normalizeZipTimestamps(await wb.xlsx.writeBuffer());
 }
 
 module.exports = { buildTemplate, templateBuffer, EX_TREE, EX_INCOMERS, EX_TRANSFORMERS, EX_ZONES };

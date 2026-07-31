@@ -14,6 +14,7 @@ const path = require('path');
 const fs = require('fs');
 const ExcelJS = require('exceljs');
 const codes = require('../server/scada/codes');
+const { normalizeZipTimestamps } = require('../server/scada/zip-normalize');
 
 const HEAD = { bold: true };
 
@@ -241,7 +242,10 @@ async function build(outPath, mutate) {
   if (mutate) mutate(wb);
 
   fs.mkdirSync(path.dirname(outPath), { recursive: true });
-  await wb.xlsx.writeFile(outPath);
+  // 실행 시각이 바이트에 섞이지 않도록 ZIP 타임스탬프를 고정한 뒤 쓴다
+  wb.created = new Date(Date.UTC(2026, 0, 1));
+  wb.modified = wb.created;
+  fs.writeFileSync(outPath, normalizeZipTimestamps(await wb.xlsx.writeBuffer()));
   return outPath;
 }
 
