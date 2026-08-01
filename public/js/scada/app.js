@@ -26,6 +26,8 @@
     'zoomInBtn', 'zoomOutBtn', 'fitBtn', 'relayoutBtn', 'liveChk', 'demoBtn',
     'openExampleBtn', 'zoneBar', 'alarmBar', 'alarmBody', 'alarmCounts', 'ackAllBtn',
     'measureBtn', 'measureMenu', 'measureBody', 'measureCount', 'measureResetBtn', 'measureCloseBtn',
+    'palette', 'paletteTabs', 'paletteItems', 'paletteHint', 'paletteToggle', 'tieBtn', 'frameChk',
+    'nbCompany', 'nbCode', 'nbVoltage', 'nbContract', 'newBlankBtn',
     'exportPdfBtn', 'exportSvgBtn', 'exportJsonBtn', 'saveBtn', 'loadChart', 'groupChart', 'siteInfo',
     'facilityBody', 'facilityCount', 'pointsBody', 'pointsCount', 'publishBtn', 'toast',
   ].forEach((id) => (els[id] = $(id)));
@@ -38,6 +40,7 @@
     liveTimer: null,
     zone: '',              // 선택된 구역코드 ('' = 전체)
     acked: new Set(),      // 확인 처리한 알람 키
+    palette: '전원',        // 심볼 메뉴바에서 열려 있는 분류
   };
 
   // ── 공통 UI ────────────────────────────────────────────────────
@@ -171,6 +174,7 @@
     Canvas.setDiagram(project.diagram);
     renderZoneBar();
     renderMeasureMenu();
+    renderPalette();
     renderMainStrip();
     renderLegend();
     renderInspector(null);
@@ -180,6 +184,7 @@
   function markDirty() {
     state.dirty = true;
     els.saveBtn.textContent = '저장 *';
+    renderAlarms();
   }
 
   async function saveDiagram() {
@@ -196,6 +201,27 @@
     const mains = state.project.diagram.nodes.filter((n) => n.kind === 'main');
     if (!mains.length) {
       els.mainStrip.innerHTML = '<p class="sc-empty">한전 메인이 없습니다. “＋ 한전메인 추가” 로 수전점을 만드세요.</p>';
+      return;
+    }
+
+    // 계측이 하나도 붙지 않은 도면(엑셀 없이 그린 새 도면)에서는
+    // '--' 만 늘어놓은 큰 카드가 화면만 잡아먹는다. 요약 카드로 줄인다.
+    const metered = mains.some((m) => m.display && Object.keys(m.display).length);
+    if (!metered) {
+      els.mainStrip.innerHTML = mains
+        .map(
+          (m) => `<article class="sc-maincard is-bare${m.id === Canvas.selectedId ? ' is-selected' : ''}" data-id="${esc(m.id)}">
+              <div class="sc-maincard-head">
+                <span class="sc-maincard-name">${esc(m.name)}</span>
+                <span class="sc-maincard-tag">${m.rating ? esc(m.rating) : '계측 미연결'}</span>
+              </div>
+              <div class="sc-bare-note">
+                ${m.ratedPower != null ? `계약전력 <b>${fmt(m.ratedPower)} kW</b> · ` : ''}하위 설비 ${state.project.diagram.nodes.filter((n) => n.mainId === m.id).length - 1}개
+                <span class="sc-muted">— 계측값은 엑셀을 올리거나 FEMS 포인트를 연결하면 표시됩니다.</span>
+              </div>
+            </article>`
+        )
+        .join('');
       return;
     }
 
@@ -265,6 +291,68 @@
       zones
         .map((z) => `<button data-zone="${esc(z.code)}" class="${state.zone === z.code ? 'active' : ''}" title="${esc(z.note || '')}">${esc(z.name)} <b>${count(z.code)}</b></button>`)
         .join('');
+  }
+
+  // ── 심볼 메뉴바 (팔레트) ───────────────────────────────────────
+  /**
+   * 단선결선도 기호 메뉴바.
+   *
+   * 엑셀 없이도 도면을 그릴 수 있어야 하므로, 계통에 놓을 수 있는 기호를
+   * 전부 분류별로 꺼내 둔다. 기호를 누르면 **선택한 설비 아래**로 붙고,
+   * 아무것도 선택하지 않았으면 새 수전 계통(루트)으로 들어간다.
+   */
+  function renderPalette() {
+    const groups = Sym.GROUPS;
+    if (!groups.some((g) => g.name === state.palette)) state.palette = groups[0].name;
+
+    els.paletteTabs.innerHTML = groups
+      .map((g) => `<button data-pg="${esc(g.name)}" class="${g.name === state.palette ? 'active' : ''}">${esc(g.name)} <b>${g.items.length}</b></button>`)
+      .join('');
+
+    const items = (groups.filter((g) => g.name === state.palette)[0] || { items: [] }).items;
+    els.paletteItems.innerHTML = items
+      .map(
+        (it) => `<button class="sc-sym" data-sym="${esc(it.id)}" title="${esc(it.label)} — 클릭하면 선택한 계통 아래에 추가">
+            <svg viewBox="0 0 30 26" aria-hidden="true">${Sym.draw(it.id, 15, 13, 9)}</svg>
+            <span class="sc-sym-name">${esc(it.label)}</span>
+          </button>`
+      )
+      .join('');
+
+    const sel = state.project && state.project.diagram.nodes.filter((n) => n.id === Canvas.selectedId)[0];
+    els.paletteHint.innerHTML = Canvas.tieFrom
+      ? '연락(TIE) 연결 중 — <b>상대편 설비를 클릭</b>하세요. (Esc 취소)'
+      : sel
+        ? `기호를 누르면 <b>${esc(sel.name)}</b> 아래에 붙습니다. 선택을 해제하면 새 수전 계통으로 들어갑니다.`
+        : '설비를 먼저 선택하면 그 아래에 붙고, 선택이 없으면 <b>새 수전 계통</b>으로 추가됩니다.';
+  }
+
+  /** 엑셀 없이 새 도면 시작 */
+  async function createBlank() {
+    const btn = els.newBlankBtn;
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '만드는 중…';
+    try {
+      const company = (els.nbCompany.value || '').trim() || '새 사업장';
+      const res = await api.createBlank({
+        company,
+        factoryCode: (els.nbCode.value || '').trim() || 'SITE',
+        voltage: els.nbVoltage.value === '' ? null : Number(els.nbVoltage.value),
+        contractPower: els.nbContract.value === '' ? null : Number(els.nbContract.value),
+        name: `${company} 단선결선도`,
+      });
+      if (!res.project) return toast('도면을 만들지 못했습니다.', 'error');
+      await loadProjects();
+      await openProject(res.project.id);
+      setView('editor');
+      toast('빈 도면을 만들었습니다. 아래 심볼 메뉴바에서 기호를 골라 계통을 그리세요.', 'ok');
+    } catch (e) {
+      toast('새 도면 실패: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
   }
 
   // ── 표시 항목 메뉴 ─────────────────────────────────────────────
@@ -367,25 +455,78 @@
 
   function renderLegend() {
     els.legend.innerHTML = `
-      <span><i style="background:var(--wire-live)"></i>가압/정상</span>
-      <span><i style="background:var(--wire-dead)"></i>미수신·비가압</span>
-      <span><i style="background:var(--wire-alarm)"></i>계약전력 초과</span>
-      <span>□ 차단기 (채움=투입 / 빔=개방)</span>
+      <span><i style="background:var(--wire-live)"></i>가압 (계측 정상)</span>
+      <span><i style="background:#2b7f68"></i>가압 (계측 없음)</span>
+      <span><i style="background:var(--wire-dead)"></i>정전 — 차단기 개방</span>
+      <span><i style="background:var(--wire-alarm)"></i>정격 초과</span>
+      <span><b>차단기 클릭 = 투입/개방</b> (채움=투입 / 빔=개방)</span>
       <span>드래그: 설비 이동 · 휠: 확대 · 빈 곳 드래그: 화면 이동</span>`;
   }
 
   // ── 속성 패널 ──────────────────────────────────────────────────
+  /**
+   * 설비 속성 편집.
+   *
+   * 엑셀로 들어오는 값(기기종류·전압·정격·보호요소·구역·TAG·변압기 제원)을
+   * **화면에서도 전부 입력**할 수 있어야 엑셀 없이 도면이 완성된다.
+   * 그래서 엑셀 열과 1:1 로 대응하는 항목을 모두 열어 두었다.
+   */
   function renderInspector(node) {
     els.deleteNodeBtn.disabled = !node;
     if (!node) {
-      els.inspectorBody.innerHTML = '<p class="sc-empty">도면에서 설비를 선택하면 속성이 표시됩니다.</p>';
+      els.inspectorBody.innerHTML = '<p class="sc-empty">도면에서 설비를 선택하면 속성이 표시됩니다.<br>비어 있는 도면이라면 아래 심볼 메뉴바에서 기호를 골라 넣으세요.</p>';
       return;
     }
 
-    const kindLabel = { main: '한전 메인 (수전점)', group: '계통 (분기)', load: '부하 설비' }[node.kind] || node.kind;
-    const symbolOptions = Sym.kinds
-      .map((k) => `<option value="${k}"${k === node.symbol ? ' selected' : ''}>${esc(Sym.LABELS[k] || k)}</option>`)
+    const d = state.project.diagram;
+    const tables = d.codeTables || {};
+    const kindLabel = { main: '수전 계통 (루트)', group: '계통 (분기)', load: '말단 설비' }[node.kind] || node.kind;
+
+    const symbolOptions = Sym.GROUPS.map(
+      (g) => `<optgroup label="${esc(g.name)}">` +
+        g.items.map((it) => `<option value="${it.id}"${it.id === node.symbol ? ' selected' : ''}>${esc(it.label)}</option>`).join('') +
+        '</optgroup>'
+    ).join('');
+
+    const kindOptions = '<option value="">— 미지정 —</option>' +
+      (tables.deviceKinds || []).map(
+        (k) => `<option value="${esc(k.code)}"${k.code === node.deviceKind ? ' selected' : ''}>${esc(k.code)} · ${esc(k.name)}</option>`
+      ).join('');
+
+    const parentOptions = '<option value="">— 없음 (수전 계통) —</option>' +
+      d.nodes
+        .filter((n) => n.id !== node.id)
+        .map((n) => `<option value="${esc(n.id)}"${n.id === node.parent ? ' selected' : ''}>${esc(n.name)}</option>`)
+        .join('');
+
+    const zoneOptions = '<option value="">— 미지정 —</option>' +
+      (d.zones || []).map((z) => `<option value="${esc(z.code)}"${z.code === node.zoneCode ? ' selected' : ''}>${esc(z.name)}</option>`).join('');
+
+    const protOn = new Set(node.protection || []);
+    const protChips = (tables.protection || [])
+      .map(
+        (pc) => `<label class="sc-chip${protOn.has(pc.code) ? ' is-on' : ''}" title="${esc(pc.name)}">
+            <input type="checkbox" data-prot="${esc(pc.code)}"${protOn.has(pc.code) ? ' checked' : ''} />${esc(pc.code)}
+          </label>`
+      )
       .join('');
+
+    const tr = node.transformer || {};
+    const trBlock = node.deviceKind === 'TR' || node.deviceKind === 'TR3' || node.symbol === 'transformer'
+      ? `<div class="sc-subhead">변압기 제원</div>
+         <div class="sc-field2">
+           <label>1차 (kV)<input id="fTrP" type="number" step="0.01" value="${tr.primaryVoltage != null ? tr.primaryVoltage : ''}" /></label>
+           <label>2차 (kV)<input id="fTrS" type="number" step="0.01" value="${tr.secondaryVoltage != null ? tr.secondaryVoltage : ''}" /></label>
+         </div>
+         <div class="sc-field2">
+           <label>용량 (kVA)<input id="fTrC" type="number" step="1" value="${tr.capacity != null ? tr.capacity : ''}" /></label>
+           <label>%Z<input id="fTrZ" type="number" step="0.1" value="${tr.impedance != null ? tr.impedance : ''}" /></label>
+         </div>
+         <div class="sc-field2">
+           <label>결선<select id="fTrV"><option value="">—</option>${(tables.vectorGroups || []).map((v) => `<option${v === tr.vectorGroup ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+           <label>냉각<select id="fTrK"><option value="">—</option>${(tables.coolingTypes || []).map((v) => `<option${v === tr.cooling ? ' selected' : ''}>${esc(v)}</option>`).join('')}</select></label>
+         </div>`
+      : '';
 
     // 지금 도면 박스에 올라가 있는 포인트에는 표시를 해 둔다
     const shownKeys = new Set(
@@ -404,16 +545,58 @@
       })
       .join('');
 
+    const ties = (d.ties || []).filter((t) => t.from === node.id || t.to === node.id);
+    const tieRows = ties
+      .map((t) => {
+        const other = d.nodes.filter((n) => n.id === (t.from === node.id ? t.to : t.from))[0];
+        return `<li>
+            <span class="pn">${esc(t.tag || 'TIE')} → ${esc(other ? other.name : '?')}</span>
+            <span class="tie-ops">
+              <button class="sc-mini" data-tie-toggle="${esc(t.id)}">${t.state === 'open' ? '투입' : '개방'}</button>
+              <button class="sc-mini is-danger" data-tie-del="${esc(t.id)}">삭제</button>
+            </span>
+          </li>`;
+      })
+      .join('');
+
     els.inspectorBody.innerHTML = `
       <div class="sc-subhead">${esc(kindLabel)}</div>
-      <div class="sc-field"><label for="fName">이름</label><input id="fName" value="${esc(node.name)}" /></div>
+      <div class="sc-field"><label for="fName">설비명</label><input id="fName" value="${esc(node.name)}" /></div>
+      <div class="sc-field2">
+        <label>기기 TAG<input id="fTag" value="${esc(node.tag || '')}" placeholder="VCB-201" /></label>
+        <label>구역<select id="fZone">${zoneOptions}</select></label>
+      </div>
+      <div class="sc-field"><label for="fKind">기기종류</label><select id="fKind">${kindOptions}</select></div>
       <div class="sc-field"><label for="fSymbol">심볼</label><select id="fSymbol">${symbolOptions}</select></div>
-      <div class="sc-field"><label for="fRated">${node.kind === 'main' ? '계약전력 (kW)' : '정격출력 (kW)'}</label>
-        <input id="fRated" type="number" step="0.1" value="${node.ratedPower != null ? node.ratedPower : ''}" placeholder="미설정" /></div>
+      <div class="sc-field"><label for="fParent">상위 계통</label><select id="fParent">${parentOptions}</select></div>
+
+      <div class="sc-subhead">정격</div>
+      <div class="sc-field2">
+        <label>전압 (kV)<input id="fVolt" type="number" step="0.01" value="${node.voltage != null ? node.voltage : ''}" placeholder="22.9" /></label>
+        <label>정격전류 (A)<input id="fAmp" type="number" step="1" value="${node.ratedCurrent != null ? node.ratedCurrent : ''}" /></label>
+      </div>
+      <div class="sc-field2">
+        <label>차단용량 (kA)<input id="fKa" type="number" step="0.1" value="${node.breakingCapacity != null ? node.breakingCapacity : ''}" /></label>
+        <label>${node.kind === 'main' ? '계약전력' : '정격용량'} (kW)<input id="fRated" type="number" step="0.1" value="${node.ratedPower != null ? node.ratedPower : ''}" /></label>
+      </div>
       ${node.kind === 'main'
         ? `<div class="sc-field"><label for="fCapacity">수전용량 (kW)</label>
              <input id="fCapacity" type="number" step="0.1" value="${node.capacity != null ? node.capacity : ''}" placeholder="미설정" /></div>`
         : ''}
+
+      <div class="sc-subhead">운전 · 접지</div>
+      <div class="sc-field-row">
+        <label class="sc-check"><input type="checkbox" id="fBreaker"${node.breakerState !== 'open' ? ' checked' : ''} /> 차단기 투입</label>
+        <label class="sc-check"><input type="checkbox" id="fGround"${node.grounded ? ' checked' : ''} /> 중성점 접지</label>
+      </div>
+
+      <div class="sc-subhead">보호요소 (ANSI)</div>
+      <div class="sc-chips" id="protChips">${protChips}</div>
+
+      ${trBlock}
+
+      <div class="sc-subhead">모선 연락 (TIE)</div>
+      ${tieRows ? `<ul class="sc-pointlist">${tieRows}</ul>` : '<p class="sc-empty">연락 결선이 없습니다. 도구막대의 “연락(TIE) 연결” 로 만드세요.</p>'}
 
       <div class="sc-subhead">계측 연결</div>
       <dl class="sc-kv">
@@ -429,14 +612,90 @@
       ${pointRows ? `<ul class="sc-pointlist">${pointRows}</ul>` : '<p class="sc-empty">연결된 포인트가 없습니다.</p>'}
     `;
 
-    const bind = (id, apply) => {
+    // ── 입력 바인딩 ──────────────────────────────────────────────
+    const num = (v) => (v === '' ? null : Number(v));
+    const after = () => { Canvas.render(); renderMainStrip(); renderAlarms(); markDirty(); };
+    const bind = (id, apply, redrawInspector) => {
       const el = $(id);
-      if (el) el.addEventListener('change', () => { apply(el.value); Canvas.render(); renderMainStrip(); markDirty(); });
+      if (!el) return;
+      el.addEventListener('change', () => {
+        apply(el.type === 'checkbox' ? el.checked : el.value);
+        after();
+        if (redrawInspector) renderInspector(node);
+      });
     };
-    bind('fName', (v) => { node.name = v.trim() || node.name; });
+
+    bind('fName', (v) => { node.name = String(v).trim() || node.name; });
+    bind('fTag', (v) => { node.tag = String(v).trim() || null; });
+    bind('fZone', (v) => {
+      node.zoneCode = v || null;
+      const z = (d.zones || []).filter((x) => x.code === v)[0];
+      node.zoneName = z ? z.name : null;
+      renderZoneBar();
+    });
+    bind('fKind', (v) => {
+      node.deviceKind = v || null;
+      // 기기종류를 고르면 심볼도 그 종류의 표준 기호로 맞춘다
+      const k = (tables.deviceKinds || []).filter((x) => x.code === v)[0];
+      if (k && k.symbol) node.symbol = k.symbol;
+    }, true);
     bind('fSymbol', (v) => { node.symbol = v; });
-    bind('fRated', (v) => { node.ratedPower = v === '' ? null : Number(v); });
-    bind('fCapacity', (v) => { node.capacity = v === '' ? null : Number(v); });
+    bind('fParent', (v) => {
+      if (!Canvas.setParent(node.id, v || null)) toast('자기 하위 계통을 상위로 지정할 수 없습니다.', 'error');
+    }, true);
+    bind('fVolt', (v) => { node.voltage = num(v); Canvas.refreshRating(node); });
+    bind('fAmp', (v) => { node.ratedCurrent = num(v); Canvas.refreshRating(node); });
+    bind('fKa', (v) => { node.breakingCapacity = num(v); Canvas.refreshRating(node); });
+    bind('fRated', (v) => { node.ratedPower = num(v); });
+    bind('fCapacity', (v) => { node.capacity = num(v); });
+    bind('fBreaker', (on) => { node.breakerState = on ? 'closed' : 'open'; });
+    bind('fGround', (on) => { node.grounded = !!on; });
+
+    // 변압기 제원
+    const trBind = (id, key, isNum) => {
+      const el = $(id);
+      if (!el) return;
+      el.addEventListener('change', () => {
+        node.transformer = node.transformer || { systemId: node.systemId };
+        node.transformer[key] = isNum ? num(el.value) : el.value || null;
+        node.transformer.label = transformerLabel(node.transformer);
+        after();
+      });
+    };
+    trBind('fTrP', 'primaryVoltage', true);
+    trBind('fTrS', 'secondaryVoltage', true);
+    trBind('fTrC', 'capacity', true);
+    trBind('fTrZ', 'impedance', true);
+    trBind('fTrV', 'vectorGroup', false);
+    trBind('fTrK', 'cooling', false);
+
+    const chips = $('protChips');
+    if (chips) {
+      chips.addEventListener('change', (e) => {
+        const cb = e.target.closest('[data-prot]');
+        if (!cb) return;
+        const set = new Set(node.protection || []);
+        if (cb.checked) set.add(cb.dataset.prot); else set.delete(cb.dataset.prot);
+        // 코드표 순서를 유지해야 도면 표기가 흔들리지 않는다
+        node.protection = (tables.protection || []).map((p) => p.code).filter((c) => set.has(c));
+        cb.closest('.sc-chip').classList.toggle('is-on', cb.checked);
+        after();
+      });
+    }
+
+  }
+
+  /** 변압기 제원 두 줄 — 서버 diagram.transformerLabel() 과 같은 규칙 */
+  function transformerLabel(tr) {
+    const kva = tr.capacity;
+    const cap = kva == null ? null : kva >= 1000 ? `${+(kva / 1000).toFixed(kva % 1000 ? 1 : 0)}MVA` : `${kva}kVA`;
+    const line1 = [
+      tr.primaryVoltage != null && tr.secondaryVoltage != null ? `${tr.primaryVoltage}/${tr.secondaryVoltage}kV` : null,
+      cap,
+    ].filter(Boolean).join(' ');
+    const line2 = [tr.vectorGroup, tr.impedance != null ? `%Z${tr.impedance}` : null, tr.cooling]
+      .filter(Boolean).join(' ');
+    return { line1, line2 };
   }
 
   // ── 도면 편집 동작 ─────────────────────────────────────────────
@@ -450,39 +709,13 @@
     toast(`한전 메인을 추가했습니다. (총 ${res.mains}개)`, 'ok');
   }
 
+  /** 선택 계통 아래에 일반 부하 추가 (심볼 메뉴바의 '일반 부하' 와 같은 동작) */
   function addLoad() {
     if (!state.project) return toast('먼저 도면을 여세요.', 'error');
     const d = state.project.diagram;
-    const parent = d.nodes.find((n) => n.id === Canvas.selectedId) || d.nodes.find((n) => n.kind === 'main');
-    if (!parent) return toast('상위 계통이 없습니다. 먼저 한전메인을 추가하세요.', 'error');
-
-    const nextId = Math.max(0, ...d.nodes.map((n) => n.systemId || 0)) + 1;
-    const siblings = d.nodes.filter((n) => n.parent === parent.id);
-    const node = {
-      id: `n${nextId}`,
-      systemId: nextId,
-      mainId: parent.mainId || parent.id,
-      kind: 'load',
-      symbol: 'load',
-      name: `신규 부하 ${nextId}`,
-      depth: (parent.depth || 1) + 1,
-      x: siblings.length ? Math.max(...siblings.map((s) => s.x)) + d.layout.LEAF_W : parent.x,
-      y: parent.y + d.layout.LANE_H,
-      w: d.layout.NODE_W,
-      h: d.layout.NODE_H,
-      parent: parent.id,
-      energySource: parent.energySource,
-      energySourceName: parent.energySourceName,
-      device: null, channel: null, facility: null,
-      ratedPower: null, capacity: null,
-      points: [], display: {}, locked: false, source: 'manual',
-    };
-    // 부모가 부하였다면 분기 계통으로 승격
-    if (parent.kind === 'load') parent.kind = 'group';
-    d.nodes.push(node);
-    Canvas.render();
-    Canvas.select(node.id);
-    markDirty();
+    const parent = d.nodes.filter((n) => n.id === Canvas.selectedId)[0] || d.nodes.filter((n) => n.kind === 'main')[0];
+    if (!parent) return toast('상위 계통이 없습니다. 먼저 수전점을 추가하세요.', 'error');
+    Canvas.addNode('load', parent.id);
   }
 
   function deleteSelected() {
@@ -752,6 +985,62 @@
       }
     });
 
+    // 엑셀 없이 새 도면
+    els.newBlankBtn.addEventListener('click', createBlank);
+    for (const id of ['nbCompany', 'nbCode', 'nbVoltage', 'nbContract']) {
+      els[id].addEventListener('keydown', (e) => { if (e.key === 'Enter') createBlank(); });
+    }
+
+    // 심볼 메뉴바
+    els.paletteToggle.addEventListener('click', () => {
+      const collapsed = els.palette.classList.toggle('is-collapsed');
+      els.paletteToggle.textContent = collapsed ? '심볼 메뉴 ▾' : '심볼 메뉴 ▴';
+      els.paletteToggle.setAttribute('aria-expanded', String(!collapsed));
+      setTimeout(() => Canvas.fit(), 30);
+    });
+    els.paletteTabs.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-pg]');
+      if (!b) return;
+      state.palette = b.dataset.pg;
+      renderPalette();
+    });
+    els.paletteItems.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-sym]');
+      if (!b) return;
+      if (!state.project) return toast('먼저 도면을 여세요.', 'error');
+      const parent = state.project.diagram.nodes.filter((n) => n.id === Canvas.selectedId)[0] || null;
+      const node = Canvas.addNode(b.dataset.sym, parent ? parent.id : null);
+      if (node) {
+        renderMainStrip();
+        renderPalette();
+        toast(`${node.name} 을(를) ${parent ? parent.name + ' 아래에' : '새 수전 계통으로'} 추가했습니다.`, 'ok');
+      }
+    });
+
+    // 모선 연락(TIE)
+    els.tieBtn.addEventListener('click', () => {
+      if (!state.project) return toast('먼저 도면을 여세요.', 'error');
+      if (Canvas.tieFrom) {
+        Canvas.startTie(null);
+        renderPalette();
+        return toast('연락 연결을 취소했습니다.', null);
+      }
+      if (!Canvas.selectedId) return toast('연락의 한쪽 설비를 먼저 선택하세요.', 'error');
+      Canvas.startTie(Canvas.selectedId);
+      renderPalette();
+      toast('상대편 설비를 클릭하면 연락(TIE) 차단기가 만들어집니다. 평소 개방 상태로 들어갑니다.', 'ok');
+    });
+    els.frameChk.addEventListener('change', () => Canvas.setFrame(els.frameChk.checked));
+
+    // 속성 패널의 연락 조작
+    els.inspectorBody.addEventListener('click', (e) => {
+      const node = state.project && state.project.diagram.nodes.filter((n) => n.id === Canvas.selectedId)[0];
+      const tg = e.target.closest('[data-tie-toggle]');
+      if (tg) { Canvas.toggleTie(tg.dataset.tieToggle); markDirty(); renderInspector(node); return; }
+      const dl = e.target.closest('[data-tie-del]');
+      if (dl) { Canvas.removeTie(dl.dataset.tieDel); markDirty(); renderInspector(node); }
+    });
+
     // 표시 항목 메뉴
     els.measureBtn.addEventListener('click', (e) => {
       if (!state.project) return toast('먼저 도면을 여세요.', 'error');
@@ -773,7 +1062,9 @@
       if (!els.measureMenu.hidden) toggleMeasureMenu(false);
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && !els.measureMenu.hidden) toggleMeasureMenu(false);
+      if (e.key !== 'Escape') return;
+      if (!els.measureMenu.hidden) toggleMeasureMenu(false);
+      if (Canvas.tieFrom) { Canvas.startTie(null); renderPalette(); }
     });
 
     // 구역 탭
@@ -861,7 +1152,7 @@
       try {
         const site = state.project.model.site;
         const mains = state.project.diagram.nodes.filter((n) => n.kind === 'main');
-        const bytes = await window.ScadaPdf.fromSvg(Canvas.toSvgString(), {
+        const bytes = await window.ScadaPdf.fromSvg(Canvas.toSvgString({ titleBlock: false }), {
           title: state.project.name,
           subtitle: [site.company, site.address].filter(Boolean).join(' · '),
           meta: [
@@ -913,7 +1204,7 @@
       host: els.canvas,
       svg: els.sld,
       onChange: markDirty,
-      onSelect: (node) => { renderInspector(node); renderMainStrip(); },
+      onSelect: (node) => { renderInspector(node); renderMainStrip(); renderPalette(); },
     });
     wire();
     tick();

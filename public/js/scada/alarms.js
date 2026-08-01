@@ -45,10 +45,23 @@ window.ScadaAlarms = (function () {
     const zoneName = (n) => n.zoneName || n.zoneCode || '-';
     const tagOf = (n) => n.tag || (n.device ? `#${n.device.deviceId}/CH${n.channel}` : n.id);
 
+    // 차단기 개폐로 정해지는 가압 상태 — 정전 구간에는 부하/미수신 알람을 내지 않는다.
+    // (전원이 없어서 값이 없는 것을 "미수신" 이라고 부르면 관제가 시끄러워진다)
+    const energized = window.ScadaCanvas && window.ScadaCanvas.energized ? window.ScadaCanvas.energized : null;
+    const isLive = (n) => !energized || energized.has(n.id);
+
     for (const node of diagram.nodes) {
       const power = node.display && node.display.power;
       const r = power ? readingOf(live, power.key) : null;
       const rated = Number(node.ratedPower) || 0;
+
+      // ⓪ 정전(비가압) — 차단기 개방으로 전원이 끊긴 구간
+      if (!isLive(node)) {
+        const self = node.breakerState === 'open';
+        items.push(mk(self ? 'caution' : 'info', 'DE_ENERGIZED', node, zoneName(node), tagOf(node),
+          self ? '차단기 개방 — 정전' : '상위 차단기 개방으로 정전', 0, ackSet));
+        continue;
+      }
 
       // ① 정격/계약전력 초과 — 관제에서 가장 먼저 봐야 하는 항목
       if (r && !r.stale && rated > 0) {

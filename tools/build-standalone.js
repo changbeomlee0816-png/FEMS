@@ -28,7 +28,7 @@ const ROOT = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8');
 
 /** 브라우저에서 돌릴 서버 모듈 (store.js 는 DB 의존이라 제외 — local-api.js 가 대신한다) */
-const SERVER_MODULES = ['schema', 'codes', 'workbook', 'parser', 'validator', 'model', 'diagram', 'importer'];
+const SERVER_MODULES = ['schema', 'codes', 'workbook', 'parser', 'validator', 'model', 'diagram', 'blank', 'importer'];
 
 function cjsShim() {
   return `

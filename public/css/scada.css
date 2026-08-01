@@ -247,6 +247,10 @@
 .sc-maincard-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 .sc-maincard-name { font-size: 15px; font-weight: 700; color: #ffd479; letter-spacing: -.2px; }
 .sc-maincard-tag { font-size: 11px; color: var(--text-muted); }
+.sc-maincard.is-bare { padding-bottom: 12px; }
+.sc-bare-note { margin-top: 7px; font-size: 12.4px; color: var(--text-secondary); }
+.sc-bare-note b { font-variant-numeric: tabular-nums; }
+.sc-bare-note .sc-muted { font-size: 12px; }
 .sc-maincard-rows { margin-top: 9px; display: grid; gap: 3px; }
 /* 표시 항목을 많이 켜면 카드가 길어지므로 2열로 접는다 */
 .sc-maincard-rows.is-dense { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 16px; }
@@ -331,6 +335,35 @@
 .wire.is-live { stroke: var(--wire-live); }
 .wire.is-alarm { stroke: var(--wire-alarm); }
 .bus { stroke: var(--wire-dead); stroke-width: 5; stroke-linecap: round; }
+
+/* 가압/정전 · 조작 가능한 차단기 · 연락 · 표제란 */
+.wire.is-on { stroke: #2b7f68; }
+.bus.is-on { stroke: #2b7f68; }
+.cb-hit { cursor: pointer; }
+.cb-hit:hover .cb { stroke: #ffd479; }
+.cb.is-closed.is-cold { fill: var(--wire-dead); stroke: var(--wire-dead); }
+.cb.is-open { stroke-dasharray: none; }
+.nd.is-dead .nd-box { stroke: #2c3f6d; }
+.nd.is-dead .nd-name { fill: #8d9cba; }
+.nd.is-dead .nd-sym { stroke: #5d6d8f; }
+.nd.is-dead .nd-box { fill: #0f1626; }
+.nd.is-dead .nd-val { fill: var(--idle); }
+.nd.is-dead .nd-vu { fill: #4d5c79; }
+.nd.is-tie-src .nd-box { stroke: #d9a441; stroke-width: 2.4; }
+.dead-bg { fill: rgba(109, 128, 166, .18); }
+.dead-tx { fill: #9fb0cf; font-size: 8px; font-weight: 600; }
+.tie-line { stroke-dasharray: 6 4; }
+.tie-line.is-live { stroke: var(--wire-live); stroke-dasharray: none; }
+.tie-label { fill: #b9d4ff; font-size: 9px; font-weight: 600; }
+.tie { cursor: pointer; }
+.tb-bg { fill: rgba(17, 26, 46, .92); stroke: var(--line); stroke-width: 1; }
+.tb-line { stroke: var(--line); stroke-width: 1; }
+.tb-title { fill: var(--text-primary); font-size: 12px; font-weight: 700; }
+.tb-sub { fill: var(--text-muted); font-size: 9.5px; }
+.tb-k { fill: var(--text-muted); font-size: 8.5px; }
+.tb-v { fill: var(--text-secondary); font-size: 10px; font-weight: 600; }
+.lg-tx { fill: var(--text-secondary); font-size: 9.5px; }
+
 .bus.is-live { stroke: var(--wire-live); }
 .bus-label { fill: var(--text-muted); font-size: 9.5px; }
 
@@ -373,6 +406,36 @@
 }
 .sc-field input:focus, .sc-field select:focus { outline: 2px solid #2a80e6; outline-offset: -1px; }
 .sc-field input[readonly] { color: var(--text-secondary); background: #0e1729; }
+
+/* 속성 패널 — 2열 입력 · 체크 줄 · 보호요소 칩 · 작은 버튼 */
+.sc-field2 {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px; padding: 6px 15px;
+}
+.sc-field2 label { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--text-muted); }
+.sc-field2 input, .sc-field2 select {
+  width: 100%; background: var(--surface-2); color: var(--text-primary);
+  border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px;
+  font-size: 13px; font-family: inherit;
+}
+.sc-field2 input:focus, .sc-field2 select:focus { outline: 2px solid #2a80e6; outline-offset: -1px; }
+.sc-field-row { display: flex; gap: 16px; padding: 6px 15px 8px; flex-wrap: wrap; }
+.sc-chips { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 15px 8px; }
+.sc-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  border: 1px solid var(--line); border-radius: 999px;
+  padding: 2px 9px; font-size: 11.4px; color: var(--text-secondary);
+  cursor: pointer; user-select: none; font-variant-numeric: tabular-nums;
+}
+.sc-chip:hover { background: var(--surface-2); }
+.sc-chip.is-on { background: rgba(57, 135, 229, .18); border-color: #3a5290; color: #cfe2ff; font-weight: 600; }
+.sc-chip input { width: 11px; height: 11px; margin: 0; accent-color: #3987e5; }
+.sc-mini {
+  background: var(--surface-2); border: 1px solid var(--line); color: var(--text-secondary);
+  border-radius: 5px; padding: 2px 8px; font-size: 11.2px; cursor: pointer; font-family: inherit;
+}
+.sc-mini:hover { background: var(--surface-3); color: var(--text-primary); }
+.sc-mini.is-danger { border-color: #6d2a2d; color: #ffb3b5; }
+.tie-ops { display: inline-flex; gap: 5px; }
 .sc-subhead {
   font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   color: var(--text-muted); padding: 14px 15px 4px; border-top: 1px solid var(--line-soft); margin-top: 8px;
@@ -574,3 +637,70 @@
 .nd.is-flash .nd-box { stroke: var(--urgent); stroke-width: 2.5; }
 .nd-tag { fill: #b9d4ff; font-size: 8.5px; font-family: ui-monospace, monospace; pointer-events: none; }
 .nd.is-dimmed { opacity: .28; }
+
+/* ── 엑셀 없이 바로 그리기 ─────────────────────────────────────── */
+.sc-newdraw {
+  background: var(--surface-1); border: 1px solid var(--line);
+  border-left: 3px solid var(--wire-live); border-radius: 10px;
+  padding: 14px 16px; margin-bottom: 16px;
+}
+.sc-newdraw-head { display: flex; flex-direction: column; gap: 3px; margin-bottom: 11px; }
+.sc-newdraw-head strong { font-size: 14px; }
+.sc-newdraw-form { display: flex; align-items: flex-end; gap: 10px; flex-wrap: wrap; }
+.sc-newdraw-form label {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 11.5px; color: var(--text-muted);
+}
+.sc-newdraw-form input {
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
+  color: var(--text-primary); padding: 7px 10px; font-size: 13px;
+  width: 150px; font-family: inherit;
+}
+.sc-newdraw-form input:focus { outline: none; border-color: #3a5290; }
+
+/* ── 심볼 메뉴바 ───────────────────────────────────────────────── */
+.sc-palette {
+  border-bottom: 1px solid var(--line-soft); background: var(--surface-1);
+}
+.sc-palette-bar { display: flex; align-items: flex-end; gap: 10px; padding-right: 12px; }
+.sc-palette-tabs { display: flex; gap: 2px; padding: 7px 12px 0; flex-wrap: wrap; flex: 1; }
+.sc-palette-toggle {
+  background: transparent; border: 1px solid var(--line); color: var(--text-muted);
+  border-radius: 6px; padding: 3px 10px; font-size: 11.6px; cursor: pointer;
+  font-family: inherit; margin-bottom: 4px; white-space: nowrap;
+}
+.sc-palette-toggle:hover { background: var(--surface-2); color: var(--text-primary); }
+.sc-palette.is-collapsed .sc-palette-items,
+.sc-palette.is-collapsed .sc-palette-hint { display: none; }
+.sc-palette-tabs button {
+  background: transparent; border: 1px solid transparent; border-bottom: 0;
+  color: var(--text-secondary); border-radius: 6px 6px 0 0;
+  padding: 5px 12px; font-size: 12.4px; cursor: pointer; font-family: inherit;
+}
+.sc-palette-tabs button:hover { background: var(--surface-2); color: var(--text-primary); }
+.sc-palette-tabs button.active {
+  background: var(--surface-2); border-color: var(--line); color: #fff; font-weight: 600;
+}
+.sc-palette-items {
+  display: flex; gap: 5px; flex-wrap: wrap;
+  padding: 9px 12px 8px; background: var(--surface-2);
+  border-top: 1px solid var(--line); max-height: 132px; overflow-y: auto;
+}
+.sc-sym {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  width: 74px; padding: 5px 3px 4px; border-radius: 6px;
+  border: 1px solid transparent; background: transparent;
+  color: var(--text-secondary); font-size: 10.2px; line-height: 1.25;
+  cursor: pointer; font-family: inherit; text-align: center;
+}
+.sc-sym:hover { background: var(--surface-3); border-color: #33477a; color: var(--text-primary); }
+.sc-sym svg { width: 30px; height: 26px; }
+.sc-sym .sc-sym-name {
+  display: block; width: 100%; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.sc-palette-hint {
+  padding: 5px 13px 7px; font-size: 11.6px; color: var(--text-muted);
+  background: var(--surface-2);
+}
+.sc-palette-hint b { color: var(--wire-live); font-weight: 600; }

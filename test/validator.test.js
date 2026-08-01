@@ -194,7 +194,8 @@ async function main() {
     assert.strictEqual(byKind.GEN, 'generator');
     assert.strictEqual(byKind.PV, 'pv');
     assert.strictEqual(byKind.MOTOR, 'motor');
-    assert.strictEqual(byKind.VCB, 'breaker');
+    assert.strictEqual(byKind.VCB, 'vcb');
+    assert.strictEqual(byKind.ACB, 'acb');
   });
   await test('전압을 V 로 잘못 넣으면 잡아낸다', async () => {
     const bad = await importWorkbook(tplBuf, { tolerant: true });
@@ -265,6 +266,65 @@ async function main() {
     assert.deepStrictEqual(d.displayItems, ['usage', 'current', 'voltage', 'pf']);
     applyDisplayItems(d, ['없는항목', 'current', 'current']);
     assert.deepStrictEqual(d.displayItems, ['current']);
+  });
+
+  console.log('\n엑셀 없이 그리기 · 심볼');
+  const { blankProject } = require('../server/scada/blank');
+  await test('빈 도면은 수전점 하나로 시작한다', () => {
+    const b = blankProject({ company: '한빛정밀', factoryCode: 'HB1', voltage: 22.9, contractPower: 1500 });
+    assert.strictEqual(b.diagram.nodes.length, 1);
+    const n = b.diagram.nodes[0];
+    assert.strictEqual(n.kind, 'main');
+    assert.strictEqual(n.symbol, 'utility');
+    assert.strictEqual(n.deviceKind, 'INCOMER');
+    assert.strictEqual(n.voltage, 22.9);
+    assert.strictEqual(n.breakerState, 'closed');
+  });
+  await test('빈 도면도 엑셀 도면과 같은 문서 구조를 갖는다', () => {
+    const b = blankProject({ company: 'A', factoryCode: 'A1' });
+    for (const key of ['meta', 'layout', 'nodes', 'edges', 'dashboard', 'displayItems', 'measures', 'ties', 'titleBlock', 'codeTables', 'zones']) {
+      assert.ok(key in b.diagram, `${key} 누락`);
+    }
+    assert.deepStrictEqual(b.diagram.displayItems, tpl.diagram.displayItems);
+    assert.strictEqual(b.diagram.measures.length, tpl.diagram.measures.length);
+  });
+  await test('도면이 편집에 필요한 코드표를 모두 싣는다', () => {
+    const ct = tpl.diagram.codeTables;
+    for (const key of ['deviceKinds', 'protection', 'voltages', 'vectorGroups', 'coolingTypes']) {
+      assert.ok(Array.isArray(ct[key]) && ct[key].length, `${key} 코드표 없음`);
+    }
+  });
+  await test('기기종류 코드가 모두 심볼을 갖는다', () => {
+    for (const k of measureCodes.DEVICE_KINDS) {
+      assert.ok(k.symbol, `${k.code} 에 심볼 없음`);
+      assert.strictEqual(measureCodes.SYMBOL_BY_DEVICE_KIND[k.code], k.symbol);
+    }
+    assert.ok(measureCodes.DEVICE_KINDS.length >= 50, '기기종류가 너무 적다');
+  });
+  await test('심볼 라이브러리가 모든 기기종류를 그릴 수 있다', () => {
+    // symbols.js 는 브라우저 모듈이라 window 를 흉내 내어 읽어들인다
+    const fsx = require('fs');
+    const pathx = require('path');
+    const src = fsx.readFileSync(pathx.join(__dirname, '../public/js/scada/symbols.js'), 'utf8');
+    const sandbox = { window: {} };
+    new Function('window', src)(sandbox.window);
+    const Sym = sandbox.window.ScadaSymbols;
+    assert.ok(Sym, 'ScadaSymbols 없음');
+    for (const k of measureCodes.DEVICE_KINDS) {
+      assert.ok(Sym.kinds.includes(k.symbol), `${k.code} 의 심볼 ${k.symbol} 이 라이브러리에 없음`);
+    }
+    // 모든 심볼이 실제로 SVG 를 만들어 내는지
+    for (const id of Sym.kinds) {
+      const out = Sym.draw(id, 20, 20, 10);
+      assert.ok(out && out.indexOf('<') === 0, `${id} 심볼이 마크업을 내지 않음`);
+      assert.ok(!/NaN|undefined/.test(out), `${id} 심볼 좌표 계산 오류: ${out.slice(0, 80)}`);
+    }
+    // 팔레트 카탈로그는 전부 그릴 수 있어야 한다
+    for (const item of Sym.CATALOG) {
+      assert.ok(Sym.kinds.includes(item.id), `카탈로그의 ${item.id} 를 그릴 수 없음`);
+      assert.ok(item.label && item.group && item.kind, `${item.id} 메타 누락`);
+    }
+    assert.ok(Sym.CATALOG.length >= 50, `심볼이 너무 적다: ${Sym.CATALOG.length}`);
   });
 
   console.log('\n한전 메인 추가');

@@ -143,6 +143,30 @@ window.ScadaLocalApi = (function (req) {
       return { ok: r.ok, project: clone(project), report: r.report };
     },
 
+    /** 엑셀 없이 새 도면 시작 — 서버판 POST /projects/blank 와 같은 결과 */
+    async createBlank(input) {
+      const built = req('blank').blankProject(input || {});
+      const model = stripLookup(built.model);
+      const now = new Date().toISOString();
+      const project = {
+        id: nextId++,
+        name: (input && input.name) || built.diagram.meta.name,
+        factoryCode: model.site.factoryCode || null,
+        company: model.site.company || null,
+        site: model.site.factoryCode || null,
+        sourceFilename: null,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+        model,
+        diagram: built.diagram,
+        report: { issues: [], errorCount: 0, warningCount: 0, infoCount: 0, summary: {} },
+      };
+      projects.unshift(project);
+      persist();
+      return { ok: true, project: clone(project) };
+    },
+
     async listProjects() {
       return {
         projects: projects

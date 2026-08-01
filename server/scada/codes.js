@@ -133,27 +133,76 @@ const SYMBOL_BY_EQUIPMENT = {
 // 실제 관제화면(변전소 HMI)에 등장하는 기기들. 종류에 따라 도면 심볼과
 // 표기할 정격 항목(정격전류/차단용량/용량)이 달라진다.
 const DEVICE_KINDS = [
-  { code: 'INCOMER', name: '수전점', group: '수전', symbol: 'utility' },
-  { code: 'GCB', name: '가스차단기', group: '개폐기기', symbol: 'breaker' },
-  { code: 'VCB', name: '진공차단기', group: '개폐기기', symbol: 'breaker' },
-  { code: 'ACB', name: '기중차단기', group: '개폐기기', symbol: 'breaker' },
-  { code: 'MCCB', name: '배선용차단기', group: '개폐기기', symbol: 'breaker' },
-  { code: 'LBS', name: '부하개폐기', group: '개폐기기', symbol: 'switch' },
-  { code: 'DS', name: '단로기', group: '개폐기기', symbol: 'switch' },
-  { code: 'ES', name: '접지개폐기', group: '개폐기기', symbol: 'ground' },
-  { code: 'ATS', name: '자동절체스위치', group: '개폐기기', symbol: 'switch' },
-  { code: 'TR', name: '변압기', group: '변압', symbol: 'transformer' },
-  { code: 'BUS', name: '모선', group: '모선', symbol: 'busbar' },
-  { code: 'MOF', name: '계기용변성기', group: '계측', symbol: 'mof' },
-  { code: 'CAP', name: '역률개선용콘덴서', group: '보상', symbol: 'capacitor' },
+  // 수전·전원
+  { code: 'INCOMER', name: '수전점', group: '전원', symbol: 'utility' },
   { code: 'GEN', name: '발전기', group: '전원', symbol: 'generator' },
   { code: 'PV', name: '태양광', group: '전원', symbol: 'pv' },
+  { code: 'WIND', name: '풍력', group: '전원', symbol: 'wind' },
   { code: 'ESS', name: '에너지저장장치', group: '전원', symbol: 'ess' },
   { code: 'UPS', name: '무정전전원장치', group: '전원', symbol: 'ups' },
+  { code: 'FC', name: '연료전지', group: '전원', symbol: 'fuelcell' },
+  { code: 'PCS', name: '전력변환장치', group: '전원', symbol: 'pcs' },
+  { code: 'RECT', name: '정류기', group: '전원', symbol: 'rectifier' },
+
+  // 변압·보상
+  { code: 'TR', name: '변압기', group: '변압', symbol: 'transformer' },
+  { code: 'TR3', name: '3권선변압기', group: '변압', symbol: 'transformer3' },
+  { code: 'ATR', name: '단권변압기', group: '변압', symbol: 'autotransformer' },
+  { code: 'PT', name: '계기용변압기', group: '계측', symbol: 'pt' },
+  { code: 'CT', name: '변류기', group: '계측', symbol: 'ct' },
+  { code: 'ZCT', name: '영상변류기', group: '계측', symbol: 'zct' },
+  { code: 'MOF', name: '계기용변성기', group: '계측', symbol: 'mof' },
+  { code: 'SR', name: '직렬리액터', group: '보상', symbol: 'reactor' },
+  { code: 'CAP', name: '역률개선용콘덴서', group: '보상', symbol: 'capacitor' },
+  { code: 'NGR', name: '중성점접지저항', group: '보상', symbol: 'ngr' },
+
+  // 개폐기기
+  { code: 'CB', name: '차단기', group: '개폐기기', symbol: 'breaker' },
+  { code: 'VCB', name: '진공차단기', group: '개폐기기', symbol: 'vcb' },
+  { code: 'ACB', name: '기중차단기', group: '개폐기기', symbol: 'acb' },
+  { code: 'GCB', name: '가스차단기', group: '개폐기기', symbol: 'gcb' },
+  { code: 'MCCB', name: '배선용차단기', group: '개폐기기', symbol: 'mccb' },
+  { code: 'ELCB', name: '누전차단기', group: '개폐기기', symbol: 'elcb' },
+  { code: 'DS', name: '단로기', group: '개폐기기', symbol: 'switch' },
+  { code: 'LBS', name: '부하개폐기', group: '개폐기기', symbol: 'lbs' },
+  { code: 'ES', name: '접지개폐기', group: '개폐기기', symbol: 'es' },
+  { code: 'COS', name: '컷아웃스위치', group: '개폐기기', symbol: 'cos' },
+  { code: 'PF', name: '전력퓨즈', group: '개폐기기', symbol: 'fuse' },
+  { code: 'ATS', name: '자동절체스위치', group: '개폐기기', symbol: 'ats' },
+  { code: 'MC', name: '전자접촉기', group: '개폐기기', symbol: 'contactor' },
+
+  // 보호·계측
+  { code: 'RELAY', name: '보호계전기', group: '계측', symbol: 'relay' },
+  { code: 'METER', name: '전력량계', group: '계측', symbol: 'meter' },
+  { code: 'AM', name: '전류계', group: '계측', symbol: 'ammeter' },
+  { code: 'VM', name: '전압계', group: '계측', symbol: 'voltmeter' },
+  { code: 'LA', name: '피뢰기', group: '보호', symbol: 'la' },
+  { code: 'SA', name: '서지흡수기', group: '보호', symbol: 'sa' },
+
+  // 부하
   { code: 'MOTOR', name: '전동기부하', group: '부하', symbol: 'motor' },
+  { code: 'VFD', name: '인버터구동전동기', group: '부하', symbol: 'vfd' },
+  { code: 'PUMP', name: '펌프', group: '부하', symbol: 'pump' },
+  { code: 'FAN', name: '송풍기', group: '부하', symbol: 'fan' },
+  { code: 'COMP', name: '공기압축기', group: '부하', symbol: 'compressor' },
+  { code: 'CHILLER', name: '냉동기', group: '부하', symbol: 'chiller' },
+  { code: 'AHU', name: '공조기', group: '부하', symbol: 'ahu' },
+  { code: 'HEAT', name: '열설비', group: '부하', symbol: 'heat' },
+  { code: 'FURNACE', name: '로', group: '부하', symbol: 'furnace' },
+  { code: 'MACHINE', name: '생산설비', group: '부하', symbol: 'machine' },
+  { code: 'LIGHT', name: '조명', group: '부하', symbol: 'lighting' },
+  { code: 'HEATER', name: '전열설비', group: '부하', symbol: 'heater' },
+  { code: 'EVC', name: 'EV충전기', group: '부하', symbol: 'evcharger' },
   { code: 'LOAD', name: '일반부하', group: '부하', symbol: 'load' },
+
+  // 계통·기타
+  { code: 'SWGR', name: '수배전반', group: '모선', symbol: 'switchgear' },
   { code: 'PANEL', name: '분전반', group: '부하', symbol: 'panel' },
+  { code: 'BUS', name: '모선', group: '모선', symbol: 'busbar' },
+  { code: 'GND', name: '접지', group: '보호', symbol: 'ground' },
+  { code: 'CABLE', name: '케이블', group: '모선', symbol: 'cable' },
 ];
+
 
 /** 기기종류 → 도면 심볼 */
 const SYMBOL_BY_DEVICE_KIND = Object.fromEntries(DEVICE_KINDS.map((d) => [d.code, d.symbol]));

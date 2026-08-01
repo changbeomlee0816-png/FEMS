@@ -122,6 +122,28 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
   }
 });
 
+/**
+ * 엑셀 없이 새 도면 시작.
+ * 업로드 경로와 같은 모델 모양을 만들어 같은 저장소에 넣는다.
+ */
+router.post('/projects/blank', (req, res, next) => {
+  try {
+    const { blankProject } = require('../scada/blank');
+    const built = blankProject(req.body || {});
+    const project = store.create({
+      name: req.body.name || built.diagram.meta.name,
+      model: built.model,
+      diagram: built.diagram,
+      report: { issues: [], errorCount: 0, warningCount: 0, infoCount: 0, summary: {} },
+      sourceFilename: null,
+      site: req.body.site,
+    });
+    res.status(201).json({ ok: true, project });
+  } catch (e) {
+    next(e);
+  }
+});
+
 // ── 프로젝트 CRUD ──────────────────────────────────────────────────
 router.get('/projects', (req, res) => {
   res.json({ projects: store.list(Number(req.query.limit) || 50) });

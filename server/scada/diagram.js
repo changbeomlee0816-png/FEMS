@@ -304,6 +304,11 @@ function buildDiagram(model, opts = {}) {
 
       points,
       display: resolveMeasures(points),
+
+      // 관제 조작 상태 — 이 노드로 들어오는 차단기의 개폐.
+      // 열면 이 노드와 하위 계통이 정전(비가압)으로 그려진다.
+      breakerState: 'closed',
+      grounded: node.deviceKind === 'TR' || node.deviceKind === 'NGR',
       locked: false,
       source: 'excel',
     });
@@ -359,8 +364,30 @@ function buildDiagram(model, opts = {}) {
     // 각 포인트에 표시할 계측 항목 + 메뉴에 올릴 전체 카탈로그
     displayItems,
     measures: codes.MEASURE_CATALOG,
+
+    // 모선 연락(TIE) — 수전 2회선 설비의 필수 요소.
+    // { id, from, to, state:'open'|'closed', tag }
+    ties: [],
+
+    // 도면 표제란 — 화면과 SVG 내보내기에 함께 실린다
+    titleBlock: {
+      title: opts.name || `${model.site.company || model.site.factoryCode} 단선결선도`,
+      company: model.site.company || '',
+      drawingNo: `SLD-${model.site.factoryCode || 'SITE'}-001`,
+      revision: 'A',
+      drawnBy: '',
+      date: new Date().toISOString().slice(0, 10),
+    },
+
     // 편집기 팔레트에 그대로 노출되는 코드표
-    codeTables: model.codeTables,
+    codeTables: {
+      ...model.codeTables,
+      deviceKinds: codes.DEVICE_KINDS,
+      protection: codes.PROTECTION_CODES,
+      voltages: codes.VOLTAGE_LEVELS,
+      vectorGroups: codes.VECTOR_GROUPS,
+      coolingTypes: codes.COOLING_TYPES,
+    },
     zones: model.zones || [],
   };
 }
@@ -400,8 +427,21 @@ function addMain(diagram, input = {}) {
     facility: null,
     ratedPower: input.contractPower != null ? input.contractPower : null,
     capacity: input.receivingCapacity != null ? input.receivingCapacity : null,
+    deviceKind: input.deviceKind || 'INCOMER',
+    voltage: input.voltage != null ? input.voltage : null,
+    rating: null,
+    ratedCurrent: null,
+    breakingCapacity: null,
+    protection: [],
+    zoneCode: null,
+    tag: input.tag || null,
+    zoneName: null,
+    transformer: null,
+    incomer: null,
     points: [],
     display: {},
+    breakerState: 'closed',
+    grounded: false,
     locked: false,
     source: 'manual',
   };

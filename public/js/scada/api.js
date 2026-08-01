@@ -49,6 +49,7 @@ window.ScadaApi = (function () {
     preview: (file, opts) => upload('/import/preview', file, opts),
     import: (file, opts) => upload('/import', file, opts),
 
+    createBlank: (payload) => send('POST', '/projects/blank', payload || {}),
     listProjects: () => send('GET', '/projects'),
     getProject: (id) => send('GET', `/projects/${id}`),
     saveDiagram: (id, diagram, name) => send('PUT', `/projects/${id}/diagram`, { diagram, name }),
