@@ -297,6 +297,28 @@ window.ScadaSymbols = (function () {
       ground(cx, cy + r * 0.66, r * 1.05);
   }
 
+  /** 서지보호기 SPD — 저압반의 낙뢰·개폐 서지 보호 (사각 + 화살 + 접지) */
+  function spd(cx, cy, r) {
+    return line(cx, cy - r, cx, cy - r * 0.6) +
+      rect(cx, cy - r * 0.08, r * 1.1, r * 1.05, 1) +
+      `<path class="nd-sym" d="M${cx - r * 0.3} ${cy - r * 0.42} l${r * 0.6} ${r * 0.68} m0 ${-r * 0.34} v${r * 0.34} h${-r * 0.34}" />` +
+      ground(cx, cy + r * 0.68, r * 1.05);
+  }
+
+  /** 누전경보기 ELD — 영상변류기 + 경보 */
+  function eld(cx, cy, r) {
+    return line(cx, cy - r, cx, cy + r) +
+      `<ellipse class="nd-sym" cx="${cx}" cy="${cy}" rx="${r * 0.85}" ry="${r * 0.6}" />` +
+      txt(cx + r * 0.02, cy, r * 0.62, 'E');
+  }
+
+  /** 케이블헤드 CH — 케이블 종단 접속재 (스트레스콘 형상) */
+  function ch(cx, cy, r) {
+    return line(cx, cy - r, cx, cy - r * 0.3) +
+      `<path class="nd-sym" d="M${cx - r * 0.62} ${cy + r * 0.75} L${cx - r * 0.2} ${cy - r * 0.3} h${r * 0.4} L${cx + r * 0.62} ${cy + r * 0.75} z" />` +
+      line(cx, cy + r * 0.75, cx, cy + r);
+  }
+
   /** 서지흡수기 SA — 맞물린 두 삼각 + 접지 */
   function sa(cx, cy, r) {
     return line(cx, cy - r, cx, cy - r * 0.5) +
@@ -476,7 +498,7 @@ window.ScadaSymbols = (function () {
     // 개폐·차단
     breaker: breakerSym, vcb, acb, gcb, mccb, elcb, switch: switchSym, lbs, es, cos, fuse, ats, contactor,
     // 보호·계측
-    relay, meter, ammeter, voltmeter, la, sa,
+    relay, meter, ammeter, voltmeter, la, sa, spd, eld, ch,
     // 부하
     motor, vfd, pump, fan, compressor, chiller, ahu, heat, furnace, machine, lighting, heater, evcharger, load,
     // 계통·기타
@@ -537,6 +559,9 @@ window.ScadaSymbols = (function () {
     { id: 'voltmeter', label: '전압계', group: '보호·계측', kind: 'VM', name: '전압계' },
     { id: 'la', label: '피뢰기 LA', group: '보호·계측', kind: 'LA', name: '피뢰기' },
     { id: 'sa', label: '서지흡수기 SA', group: '보호·계측', kind: 'SA', name: '서지흡수기' },
+    { id: 'spd', label: '서지보호기 SPD', group: '보호·계측', kind: 'SPD', name: 'SPD' },
+    { id: 'eld', label: '누전경보기 ELD', group: '보호·계측', kind: 'ELD', name: '누전경보기' },
+    { id: 'ch', label: '케이블헤드 CH', group: '계통·기타', kind: 'CH', name: '케이블헤드' },
 
     // 부하
     { id: 'motor', label: '전동기', group: '부하', kind: 'MOTOR', name: '전동기' },

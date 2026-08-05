@@ -21,55 +21,36 @@ const HEAD = { bold: true };
 function setBasic(ws, o) {
   ws.getCell('A1').value = 'FEMS 수용가 정보';
   const labels = [
-    ['A2', '회사정보'], ['B2', '* 회사명'], ['B3', '업종'], ['B4', '홈페이지 주소'],
-    ['B5', '* 전화번호'], ['B6', '* 주소'],
-    ['A7', '신청정보'], ['B7', ' * FEMS 마스터 계정ID'], ['B8', '* 공장코드(접속주소)'], ['B9', '* 신청 요금제'],
-    ['A10', '한전파워플래너'], ['B10', '계정'], ['B11', '비밀번호'],
-    ['A12', '수용가 담당자 정보'], ['B12', '*  담당자명'], ['B13', '직급'], ['B14', '* 휴대전화번호'], ['B15', '* 이메일 주소'],
-    ['A16', '기타'], ['B16', '에너지원'], ['B18', '건물규모'], ['B20', '준공년도'], ['B21', '상주인력'],
-    ['B22', '연편균 에너지 사용량'], ['B23', '일 평균 운영시간'],
-    ['A24', 'FEMS 설정'], ['B24', '*요금 적용 전력'], ['B25', '*수전용량'],
-    ['A27', '에너지 정보'], ['B27', '종류'], ['B28', '에너지원 기본 단위'], ['B29', '탭표시명'],
-    ['B30', '석유환산계수[toe/기본단위]'], ['B31', '탄소배출계수 [tco2/기본단위]'], ['B32', '에너지 단가 [원/기본단위]'],
+    ['A1', '사업장 정보'], ['B2', '* 회사명'], ['B3', '* 공장코드(접속주소)'], ['B4', '업종'],
+    ['B5', '* 주소'], ['B6', '* 전화번호'], ['B7', '* FEMS 마스터 계정ID'],
+    ['A9', '담당자'], ['B10', '* 담당자명'], ['B11', '직급'], ['B12', '* 휴대전화번호'], ['B13', '* 이메일 주소'],
+    ['A15', '수전 계약'], ['B16', '* 신청 요금제'], ['B17', '* 요금 적용 전력'], ['B18', '* 수전용량'],
+    ['A20', '에너지원 (선택)'], ['B21', '종류'], ['B22', '기본 단위'],
+    ['B23', '석유환산계수 [toe/단위]'], ['B24', '탄소배출계수 [tCO2/단위]'], ['B25', '단가 [원/단위]'],
   ];
   for (const [cell, v] of labels) ws.getCell(cell).value = v;
 
-  ws.getCell('C16').value = '전기';
-  ws.getCell('D16').value = '가스';
-  ws.getCell('C18').value = '동';
-  ws.getCell('D18').value = '존';
-  ws.getCell('E18').value = '층';
-  ws.getCell('F18').value = '연면적';
-  ws.getCell('G20').value = '년';
-  ws.getCell('G24').value = 'kW';
-  ws.getCell('G25').value = 'kW';
+  ws.getCell('G17').value = 'kW';
+  ws.getCell('G18').value = 'kW';
 
   for (const [cell, v] of Object.entries(o)) ws.getCell(cell).value = v;
 }
 
 const GOOD_BASIC = {
   C2: '한빛정밀공업',
-  C3: '자동차부품제조업',
-  C4: 'http://www.hanbit-example.co.kr/',
-  C5: '031-555-1234',
-  C6: '경기도 안성시 공단로 24',
+  C3: 'hanbit',
+  C4: '자동차부품제조업',
+  C5: '경기도 안성시 공단로 24',
+  C6: '031-555-1234',
   C7: 'hanbit',
-  C8: 'hanbit',
-  C9: '산업용전력(을) - 고압 A - 선택 Ⅱ',
-  C10: '0123456789',
-  C11: 'kepco-pw-2024',
-  C12: '이창범',
-  C13: '차장',
-  C14: '010-2345-6789',
-  C15: 'cb.lee@hanbit-example.co.kr',
-  C19: 2, D19: 3, E19: 4, F19: 12800,
-  C20: 2011,
-  C21: 145,
-  C22: 1820,
-  C23: 20,
-  C24: 2400,
-  C25: 3000,
-  C27: '전기', C28: 'kWh', C29: '전력', C30: 0.00023, C31: 0.0004594, C32: 148.5,
+  C10: '이창범',
+  C11: '차장',
+  C12: '010-2345-6789',
+  C13: 'cb.lee@hanbit-example.co.kr',
+  C16: '산업용전력(을) - 고압 A - 선택 Ⅱ',
+  C17: 2400,
+  C18: 3000,
+  C21: '전기', C22: 'kWh', C23: 0.00023, C24: 0.0004594, C25: 148.5,
 };
 
 // 장비: 1=제1수전 메인, 2=제2수전 메인, 3=압출기, 4=공압기, 5=사출기
@@ -147,19 +128,17 @@ async function build(outPath, mutate) {
   // 1)장비
   const dv = wb.addWorksheet('1)장비');
   dv.getCell('A1').value = '등록 장비 정보';
-  ['*장비ID', '*장비 타입', '* 제품명', '측정설비', '장비 위치', '*IP 주소', '설치 일자'].forEach((h, i) => {
-    dv.getCell(2, i + 1).value = h;
-    dv.getCell(2, i + 1).font = HEAD;
-  });
-  ['프로토콜 타입', '엔진 ID', 'Offset', '포트', '전송주기', '모니터링 주기', '전력 채널 수', '계산 여부', '사용여부'].forEach((h, i) => {
-    dv.getCell(2, i + 9).value = h;
-    dv.getCell(2, i + 9).font = HEAD;
-  });
+  ['*장비ID', '*장비 타입', '* 제품명', '설치 위치', '*IP 주소', '포트', '전력 채널 수', '전송주기(초)', '설치 일자', '사용여부']
+    .forEach((h, i) => {
+      dv.getCell(2, i + 1).value = h;
+      dv.getCell(2, i + 1).font = HEAD;
+    });
   DEVICES.forEach((d, i) => {
     const r = i + 3;
-    d.forEach((v, c) => (dv.getCell(r, c + 1).value = v));
-    dv.getCell(r, 7).value = new Date('2023-04-18T09:20:00Z');
-    ['01', 1, 0, 502, 15, 15, 40, 'Y', 'Y'].forEach((v, c) => (dv.getCell(r, c + 9).value = v));
+    // [장비ID, 타입, 제품명, (측정설비 — 양식에서 빠짐), 위치, IP]
+    [d[0], d[1], d[2], d[4], d[5], 502, 40, 15].forEach((v, c) => (dv.getCell(r, c + 1).value = v));
+    dv.getCell(r, 9).value = new Date('2023-04-18T09:20:00Z');
+    dv.getCell(r, 10).value = 'Y';
   });
 
   // 2)채널활성화 및 설비트리
@@ -251,10 +230,10 @@ async function build(outPath, mutate) {
 
 /** 일부러 셀 단위 오류를 심는다. 각 주석은 "검증기가 짚어야 할 셀"이다. */
 function breakIt(wb) {
-  wb.getWorksheet('0)기본정보').getCell('C15').value = 'not-an-email';        // BAD_EMAIL
-  wb.getWorksheet('0)기본정보').getCell('C9').value = '산업용전력(을) - 고압 A - 선택 5'; // UNKNOWN_TARIFF
-  wb.getWorksheet('0)기본정보').getCell('C24').value = 4000;                   // CONTRACT_GT_CAPACITY (경고)
-  wb.getWorksheet('1)장비').getCell('F5').value = '100.100.0.999';             // BAD_IP
+  wb.getWorksheet('0)기본정보').getCell('C13').value = 'not-an-email';        // BAD_EMAIL
+  wb.getWorksheet('0)기본정보').getCell('C16').value = '산업용전력(을) - 고압 A - 선택 5'; // UNKNOWN_TARIFF
+  wb.getWorksheet('0)기본정보').getCell('C17').value = 4000;                   // CONTRACT_GT_CAPACITY (경고)
+  wb.getWorksheet('1)장비').getCell('E5').value = '100.100.0.999';             // BAD_IP
   wb.getWorksheet('1)장비').getCell('A6').value = 3;                           // DUPLICATE_ID (A5 와 충돌)
   wb.getWorksheet('1)장비').getCell('C7').value = 'Accura9999';                // UNKNOWN_PRODUCT
   wb.getWorksheet('2)채널활성화 및 설비트리').getCell('A5').value = 99;         // UNKNOWN_DEVICE

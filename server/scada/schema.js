@@ -26,44 +26,52 @@ const SHEETS = {
 const REQUIRED_SHEETS = [SHEETS.BASIC, SHEETS.DEVICE, SHEETS.CHANNEL, SHEETS.ENERGY_TREE, SHEETS.DEVICE_PROFILE];
 
 // ── 0)기본정보 : 라벨-값 형태 (값은 C열, 병합 C:F) ────────────────
+/**
+ * 0)기본정보 — 라벨-값 형태 (값은 C열, 병합 C:F)
+ *
+ * 도면 생성·검증·FEMS 연동에 실제로 쓰이는 항목만 남겼다.
+ * 뺀 것: 홈페이지, 준공년도, 상주인력, 연평균 에너지사용량, 일평균 운영시간, 건물규모
+ *        — 어디에도 쓰이지 않아 채우는 사람만 헷갈렸다.
+ *        한전 파워플래너 계정·비밀번호는 **비밀번호를 엑셀로 주고받는 것 자체가 위험**해서 뺐다.
+ *        (필요하면 시스템에서 직접 입력받는다)
+ */
 const BASIC_FIELDS = [
   { key: 'companyName', cell: 'C2', label: '회사명', required: true },
-  { key: 'industry', cell: 'C3', label: '업종' },
-  { key: 'homepage', cell: 'C4', label: '홈페이지 주소' },
-  { key: 'phone', cell: 'C5', label: '전화번호', required: true, type: 'phone' },
-  { key: 'address', cell: 'C6', label: '주소', required: true },
+  { key: 'factoryCode', cell: 'C3', label: '공장코드(접속주소)', required: true, type: 'slug' },
+  { key: 'industry', cell: 'C4', label: '업종' },
+  { key: 'address', cell: 'C5', label: '주소', required: true },
+  { key: 'phone', cell: 'C6', label: '전화번호', required: true, type: 'phone' },
   { key: 'masterAccountId', cell: 'C7', label: 'FEMS 마스터 계정ID', required: true, type: 'slug' },
-  { key: 'factoryCode', cell: 'C8', label: '공장코드(접속주소)', required: true, type: 'slug' },
-  { key: 'tariff', cell: 'C9', label: '신청 요금제', required: true, type: 'tariff' },
-  { key: 'kepcoAccount', cell: 'C10', label: '한전파워플래너 계정' },
-  { key: 'kepcoPassword', cell: 'C11', label: '한전파워플래너 비밀번호', secret: true },
-  { key: 'managerName', cell: 'C12', label: '담당자명', required: true },
-  { key: 'managerRank', cell: 'C13', label: '직급' },
-  { key: 'managerMobile', cell: 'C14', label: '휴대전화번호', required: true, type: 'mobile' },
-  { key: 'managerEmail', cell: 'C15', label: '이메일 주소', required: true, type: 'email' },
-  { key: 'builtYear', cell: 'C20', label: '준공년도', type: 'year' },
-  { key: 'headcount', cell: 'C21', label: '상주인력', type: 'number' },
-  { key: 'annualEnergyToe', cell: 'C22', label: '연평균 에너지 사용량(toe)', type: 'number' },
-  { key: 'dailyOperatingHours', cell: 'C23', label: '일 평균 운영시간(hour/day)', type: 'number', max: 24 },
-  { key: 'contractPower', cell: 'C24', label: '요금 적용 전력(kW)', required: true, type: 'number', min: 0 },
-  { key: 'receivingCapacity', cell: 'C25', label: '수전용량(kW)', required: true, type: 'number', min: 0 },
+
+  { key: 'managerName', cell: 'C10', label: '담당자명', required: true },
+  { key: 'managerRank', cell: 'C11', label: '직급' },
+  { key: 'managerMobile', cell: 'C12', label: '휴대전화번호', required: true, type: 'mobile' },
+  { key: 'managerEmail', cell: 'C13', label: '이메일 주소', required: true, type: 'email' },
+
+  { key: 'tariff', cell: 'C16', label: '신청 요금제', required: true, type: 'tariff' },
+  { key: 'contractPower', cell: 'C17', label: '요금 적용 전력(kW)', required: true, type: 'number', min: 0 },
+  { key: 'receivingCapacity', cell: 'C18', label: '수전용량(kW)', required: true, type: 'number', min: 0 },
 ];
 
-/** 기타 > 건물규모 : 라벨 18행 / 값 19행 (C~F) */
-const BUILDING_SCALE = { labelRow: 18, valueRow: 19, cols: ['C', 'D', 'E', 'F'] };
-/** 기타 > 에너지원 : 라벨 16행 / 값 17행 (C~F) */
-const ENERGY_USE = { labelRow: 16, valueRow: 17, cols: ['C', 'D', 'E', 'F'] };
-
-/** 에너지 정보 : 27~32행 × C~F열 (열 하나가 에너지원 1개) */
+/** 기본정보의 묶음 제목 — 양식에서 구역을 나눠 읽기 쉽게 한다 */
+const BASIC_GROUPS = [
+  { row: 1, title: '사업장' },
+  { row: 9, title: '담당자' },
+  { row: 15, title: '수전 계약' },
+];
+/**
+ * 에너지원 정보 : 21~25행 × C~F열 (열 하나가 에너지원 1개)
+ * 전력 외 에너지(가스·증기·용수…)를 함께 집계할 때만 채운다.
+ * 쓰이지 않던 '탭표시명' 은 뺐다 — 종류가 그대로 화면 이름이 된다.
+ */
 const ENERGY_INFO = {
   cols: ['C', 'D', 'E', 'F'],
   rows: [
-    { key: 'kind', row: 27, label: '종류', required: true },
-    { key: 'baseUnit', row: 28, label: '에너지원 기본 단위', required: true },
-    { key: 'tabName', row: 29, label: '탭표시명', required: true },
-    { key: 'toeFactor', row: 30, label: '석유환산계수[toe/기본단위]', type: 'number' },
-    { key: 'co2Factor', row: 31, label: '탄소배출계수[tco2/기본단위]', type: 'number' },
-    { key: 'unitPrice', row: 32, label: '에너지 단가[원/기본단위]', type: 'number' },
+    { key: 'kind', row: 21, label: '종류', required: true },
+    { key: 'baseUnit', row: 22, label: '기본 단위', required: true },
+    { key: 'toeFactor', row: 23, label: '석유환산계수 [toe/단위]', type: 'number' },
+    { key: 'co2Factor', row: 24, label: '탄소배출계수 [tCO2/단위]', type: 'number' },
+    { key: 'unitPrice', row: 25, label: '단가 [원/단위]', type: 'number' },
   ],
 };
 
@@ -71,24 +79,18 @@ const ENERGY_INFO = {
 const DEVICE_SHEET = {
   headerRow: 2,
   startRow: 3,
-  identityCols: ['A', 'B', 'C', 'D', 'E', 'F', 'G'],
+  identityCols: ['A', 'B', 'C', 'D', 'E'],
   columns: [
     { key: 'deviceId', col: 'A', label: '장비ID', required: true, type: 'int', min: 1, unique: true },
     { key: 'deviceType', col: 'B', label: '장비 타입', required: true },
     { key: 'productName', col: 'C', label: '제품명', required: true },
-    { key: 'measuredFacility', col: 'D', label: '측정설비' },
-    { key: 'location', col: 'E', label: '장비 위치' },
-    { key: 'ip', col: 'F', label: 'IP 주소', required: true, type: 'ipv4' },
-    { key: 'installedAt', col: 'G', label: '설치 일자', type: 'date' },
-    { key: 'protocolType', col: 'I', label: '프로토콜 타입' },
-    { key: 'engineId', col: 'J', label: '엔진 ID' },
-    { key: 'offset', col: 'K', label: 'Offset', type: 'int' },
-    { key: 'port', col: 'L', label: '포트', type: 'int', min: 1, max: 65535 },
-    { key: 'sendCycle', col: 'M', label: '전송주기', type: 'int', min: 1 },
-    { key: 'monitorCycle', col: 'N', label: '모니터링 주기', type: 'int', min: 1 },
-    { key: 'powerChannels', col: 'O', label: '전력 채널 수', type: 'int', min: 1 },
-    { key: 'calcYn', col: 'P', label: '계산 여부', type: 'yn' },
-    { key: 'useYn', col: 'Q', label: '사용여부', type: 'yn' },
+    { key: 'location', col: 'D', label: '설치 위치' },
+    { key: 'ip', col: 'E', label: 'IP 주소', required: true, type: 'ipv4' },
+    { key: 'port', col: 'F', label: '포트', type: 'int', min: 1, max: 65535 },
+    { key: 'powerChannels', col: 'G', label: '전력 채널 수', type: 'int', min: 1 },
+    { key: 'sendCycle', col: 'H', label: '전송주기(초)', type: 'int', min: 1 },
+    { key: 'installedAt', col: 'I', label: '설치 일자', type: 'date' },
+    { key: 'useYn', col: 'J', label: '사용여부', type: 'yn' },
   ],
 };
 
@@ -220,8 +222,7 @@ module.exports = {
   SHEETS,
   REQUIRED_SHEETS,
   BASIC_FIELDS,
-  BUILDING_SCALE,
-  ENERGY_USE,
+  BASIC_GROUPS,
   ENERGY_INFO,
   DEVICE_SHEET,
   CHANNEL_SHEET,

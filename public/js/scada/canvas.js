@@ -28,6 +28,7 @@ window.ScadaCanvas = (function () {
   let energized = new Set(); // 가압된 노드 id — render() 마다 다시 계산
   let showFrame = true;      // 표제란 · 범례 표시
   let tieFrom = null;        // 연락(TIE) 연결 대기 중인 시작 노드
+  let pen = null;            // 트레이싱 펜 — 잡고 있으면 클릭한 자리에 그 심볼을 놓는다
 
   // ── 값 조회 ────────────────────────────────────────────────────
   function reading(key) {
@@ -218,6 +219,14 @@ window.ScadaCanvas = (function () {
     if (!diagram) return;
     energized = computeEnergized();
     const parts = [];
+
+    // 0) 도면 밑그림 — 가져온 전기도면을 깔고 그 위를 따라 그린다
+    const u = diagram.underlay;
+    if (u && u.dataUrl && u.visible !== false) {
+      parts.push(`<image class="underlay" href="${u.dataUrl}" x="${u.x}" y="${u.y}"
+          width="${u.w}" height="${u.h}" opacity="${u.opacity == null ? 0.45 : u.opacity}"
+          preserveAspectRatio="none" />`);
+    }
 
     // 1) 결선 (노드 뒤에 깔린다)
     for (const node of diagram.nodes) {
@@ -532,7 +541,12 @@ window.ScadaCanvas = (function () {
     let x;
     let y;
     let depth;
-    if (parent) {
+    if (opts && opts.x != null && opts.y != null) {
+      // 트레이싱 — 클릭한 자리에 그대로 놓는다
+      depth = parent ? (parent.depth || 1) + 1 : 1;
+      x = Math.round(opts.x - L.NODE_W / 2);
+      y = Math.round(opts.y - L.NODE_H / 2);
+    } else if (parent) {
       depth = (parent.depth || 1) + 1;
       y = L.LANE_TOP + (depth - 1) * L.LANE_H;
       const sibs = diagram.nodes.filter((n) => n.parent === parent.id);
@@ -592,6 +606,18 @@ window.ScadaCanvas = (function () {
     select(node.id);
     onChange();
     return node;
+  }
+
+  /** 클릭한 자리 위쪽에서 가장 가까운 노드 — 트레이싱 시 상위 계통 추정 */
+  function nearestAbove(x, y) {
+    let best = null;
+    let bd = Infinity;
+    for (const n of diagram.nodes) {
+      if (n.y + n.h > y) continue; // 아래쪽 노드는 상위가 될 수 없다
+      const d = Math.abs(n.x + n.w / 2 - x) + (y - (n.y + n.h)) * 0.6;
+      if (d < bd) { bd = d; best = n; }
+    }
+    return best ? best.id : null;
   }
 
   /** 정격 표기 문자열 다시 만들기 — 서버 diagram.ratingLabel() 과 같은 규칙 */
@@ -706,6 +732,15 @@ window.ScadaCanvas = (function () {
       if (tie) {
         e.preventDefault();
         toggleTie(tie.dataset.tie);
+        return;
+      }
+
+      // 트레이싱 펜 — 빈 곳을 클릭하면 그 자리에 심볼을 놓는다
+      if (pen && !(e.target.closest && e.target.closest('.nd'))) {
+        e.preventDefault();
+        const w = toWorld(e.clientX, e.clientY);
+        const parent = selectedId ? selectedId : nearestAbove(w.x, w.y);
+        addNode(pen, parent, { x: w.x, y: w.y });
         return;
       }
 
@@ -943,6 +978,9 @@ window.ScadaCanvas = (function () {
     const h = Math.round(b.y2 - b.y1);
     // PDF 는 자체 표제란(A3 도면틀)을 그리므로 중복을 뺀다
     const g = svg.querySelector('g').cloneNode(true);
+    // 밑그림은 따라 그리기용 보조물 — 완성 도면에는 넣지 않는다
+    const ul = g.querySelector('.underlay');
+    if (ul) ul.parentNode.removeChild(ul);
     if (opts && opts.titleBlock === false) {
       const tb = g.querySelector('.title-block');
       if (tb) tb.parentNode.removeChild(tb);
@@ -970,6 +1008,7 @@ window.ScadaCanvas = (function () {
     diagram = d;
     selectedId = null;
     tieFrom = null;
+    setPen(null);
     // 이전 버전 도면 호환 — 없는 필드를 기본값으로 채운다
     if (diagram) {
       if (!diagram.ties) diagram.ties = [];
@@ -1019,6 +1058,69 @@ window.ScadaCanvas = (function () {
     return diagram.displayItems;
   }
 
+  // ── 도면 밑그림 (트레이싱) ─────────────────────────────────────
+  /**
+   * 가져온 전기도면을 캔버스에 깔아 준다.
+   * 스캔 도면은 글자를 꺼낼 수 없으므로, 이 밑그림 위를 심볼 메뉴바로
+   * 따라 그리는 것이 가장 빠르고 정확하다.
+   */
+  function setUnderlay(u) {
+    if (!diagram) return null;
+    if (!u) {
+      delete diagram.underlay;
+      render();
+      fit();
+      return null;
+    }
+    // 도면 폭에 맞춰 적당한 크기로 앉힌다
+    const targetW = Math.max(1400, diagram.layout.canvasW || 1400);
+    const scaleTo = targetW / (u.w || targetW);
+    diagram.underlay = {
+      dataUrl: u.dataUrl,
+      x: 0,
+      y: 40,
+      w: Math.round((u.w || targetW) * scaleTo),
+      h: Math.round((u.h || 900) * scaleTo),
+      opacity: 0.45,
+      visible: true,
+      name: u.name || '',
+    };
+    render();
+    fit();
+    onChange();
+    return diagram.underlay;
+  }
+
+  function updateUnderlay(patch) {
+    if (!diagram || !diagram.underlay) return null;
+    Object.assign(diagram.underlay, patch);
+    render();
+    onChange();
+    return diagram.underlay;
+  }
+
+  /** 밑그림 크기 조절 — 비율은 유지한다 */
+  function scaleUnderlay(factor) {
+    const u = diagram && diagram.underlay;
+    if (!u) return null;
+    const ratio = u.h / u.w;
+    u.w = Math.round(u.w * factor);
+    u.h = Math.round(u.w * ratio);
+    render();
+    onChange();
+    return u;
+  }
+
+  /**
+   * 트레이싱 펜 — 심볼을 하나 잡고 도면 위를 클릭하면 그 자리에 놓인다.
+   * 연달아 클릭해 여러 개를 빠르게 찍을 수 있고, Esc 로 내려놓는다.
+   */
+  function setPen(symbolId) {
+    pen = symbolId || null;
+    host.classList.toggle('is-pen', !!pen);
+    return pen;
+  }
+
   /** 표제란·범례 표시 토글 */
   function setFrame(on) {
     showFrame = !!on;
@@ -1057,6 +1159,10 @@ window.ScadaCanvas = (function () {
     removeTie,
     startTie,
     setFrame,
+    setUnderlay,
+    updateUnderlay,
+    scaleUnderlay,
+    setPen,
     toSvgString,
     statusOf,
     primary,
@@ -1072,6 +1178,12 @@ window.ScadaCanvas = (function () {
     },
     get tieFrom() {
       return tieFrom;
+    },
+    get pen() {
+      return pen;
+    },
+    get underlay() {
+      return diagram && diagram.underlay ? diagram.underlay : null;
     },
     get energized() {
       return energized;

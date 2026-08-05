@@ -104,10 +104,10 @@ async function main() {
 
   console.log('\n오류 파일 — 셀 단위 지적');
   const expected = [
-    ['0)기본정보', 'C9', 'UNKNOWN_TARIFF', '요금제 목록에 없는 값'],
-    ['0)기본정보', 'C15', 'BAD_EMAIL', '이메일 형식 오류'],
-    ['0)기본정보', 'C24', 'CONTRACT_GT_CAPACITY', '요금적용전력 > 수전용량'],
-    ['1)장비', 'F5', 'BAD_IP', 'IP 주소 형식 오류'],
+    ['0)기본정보', 'C16', 'UNKNOWN_TARIFF', '요금제 목록에 없는 값'],
+    ['0)기본정보', 'C13', 'BAD_EMAIL', '이메일 형식 오류'],
+    ['0)기본정보', 'C17', 'CONTRACT_GT_CAPACITY', '요금적용전력 > 수전용량'],
+    ['1)장비', 'E5', 'BAD_IP', 'IP 주소 형식 오류'],
     ['1)장비', 'A6', 'DUPLICATE_ID', '장비ID 중복'],
     ['1)장비', 'C7', 'UNKNOWN_PRODUCT', '장비속성에 없는 제품명'],
     ['2)채널활성화', 'A5', 'UNKNOWN_DEVICE', '없는 장비ID 참조'],
@@ -325,6 +325,88 @@ async function main() {
       assert.ok(item.label && item.group && item.kind, `${item.id} 메타 누락`);
     }
     assert.ok(Sym.CATALOG.length >= 50, `심볼이 너무 적다: ${Sym.CATALOG.length}`);
+  });
+
+  console.log('\n기호 해설 · 도면 가져오기');
+  await test('모든 심볼에 해설이 붙어 있다', () => {
+    const fsx = require('fs');
+    const pathx = require('path');
+    const sandbox = { window: {} };
+    for (const f of ['symbols', 'glossary']) {
+      new Function('window', fsx.readFileSync(pathx.join(__dirname, `../public/js/scada/${f}.js`), 'utf8'))(sandbox.window);
+    }
+    const Sym = sandbox.window.ScadaSymbols;
+    const G = sandbox.window.ScadaGlossary;
+    const missing = Sym.CATALOG.filter((it) => !G.bySymbol(it.id)).map((it) => it.id);
+    assert.strictEqual(missing.length, 0, `해설 없는 심볼: ${missing.join(', ')}`);
+    for (const id of Object.keys(G.SYMBOLS)) {
+      const g = G.SYMBOLS[id];
+      assert.ok(g.name && g.what, `${id} 해설 부실`);
+      assert.ok(Sym.kinds.includes(id), `해설에만 있고 심볼이 없는 항목: ${id}`);
+    }
+    assert.ok(G.ANSI.length >= 25 && G.NOTATION.length >= 10 && G.ENERGY.length >= 6);
+  });
+  await test('해설 검색이 이름 맞는 항목을 먼저 준다', () => {
+    const fsx = require('fs');
+    const pathx = require('path');
+    const sandbox = { window: {} };
+    for (const f of ['symbols', 'glossary']) {
+      new Function('window', fsx.readFileSync(pathx.join(__dirname, `../public/js/scada/${f}.js`), 'utf8'))(sandbox.window);
+    }
+    const G = sandbox.window.ScadaGlossary;
+    assert.strictEqual(G.search('VCB').symbols[0], 'vcb');
+    assert.strictEqual(G.search('MCCB').symbols[0], 'mccb');
+    assert.ok(G.search('87T').ansi.length > 0);
+    assert.ok(G.search('AF').notation.length > 0);
+  });
+  await test('도면 표기에서 기기와 정격을 읽어낸다', () => {
+    const fsx = require('fs');
+    const pathx = require('path');
+    const sandbox = {
+      window: {}, TextDecoder, DecompressionStream: undefined, Response: undefined,
+    };
+    new Function('window', 'TextDecoder', fsx.readFileSync(pathx.join(__dirname, '../public/js/scada/drawing-import.js'), 'utf8'))(
+      sandbox.window, TextDecoder
+    );
+    const DI = sandbox.window.ScadaDrawingImport;
+
+    // 실제 도면에 적히는 표기 그대로
+    const spec = DI.parseSpec('VCB 24KV 3P 630A (520MVA) 12.5KA');
+    assert.strictEqual(spec.voltage, 24);
+    assert.strictEqual(spec.breakingCapacity, 12.5);
+    const mccb = DI.parseSpec('MCCB 3P 225/200AT');
+    assert.strictEqual(mccb.frame, 225);
+    assert.strictEqual(mccb.trip, 200);
+    assert.strictEqual(DI.parseSpec('TRANSFORMER-2 3Φ 300KVA').capacityKva, 300);
+
+    const items = DI.detect([
+      { text: 'KEPCO INCOMING LINE 22.9KV', x: 100, y: 40 },
+      { text: 'LBS 25.8KV 3P 600A', x: 100, y: 90 },
+      { text: 'VCB 24KV 3P 630A 12.5KA', x: 100, y: 150 },
+      { text: 'TRANSFORMER-1 3Φ 750KVA', x: 80, y: 260 },
+      { text: 'TRANSFORMER-2 3Φ 500KVA', x: 400, y: 260 },
+      { text: 'MCCB 3P 225/200AT', x: 70, y: 380 },
+      { text: 'MCCB 3P 100/75AT', x: 420, y: 380 },
+      { text: 'SPARE', x: 600, y: 380 },
+    ]);
+    const kinds = items.map((i) => i.symbol);
+    assert.ok(kinds.includes('utility') && kinds.includes('lbs') && kinds.includes('vcb'));
+    assert.strictEqual(kinds.filter((k) => k === 'transformer').length, 2);
+    assert.ok(!kinds.includes('load'), 'SPARE 는 건너뛰어야 한다');
+
+    // 트리: 수전 → 특고압 직렬 → 변압기 → 저압(가까운 변압기 아래)
+    const tree = DI.buildTree(items);
+    const byKey = Object.fromEntries(tree.map((n) => [n.key, n]));
+    const root = tree.filter((n) => !n.parent)[0];
+    assert.strictEqual(root.symbol, 'utility');
+    const trs = tree.filter((n) => n.symbol === 'transformer');
+    assert.strictEqual(trs.length, 2);
+    const lv = tree.filter((n) => n.symbol === 'mccb');
+    assert.strictEqual(lv.length, 2);
+    for (const n of lv) assert.strictEqual(byKey[n.parent].symbol, 'transformer');
+    // x 가 가까운 변압기에 붙었는지
+    assert.strictEqual(byKey[lv[0].parent].x, 80);
+    assert.strictEqual(byKey[lv[1].parent].x, 400);
   });
 
   console.log('\n한전 메인 추가');

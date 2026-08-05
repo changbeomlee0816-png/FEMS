@@ -106,15 +106,16 @@ function fillRows(ws, spec, rows) {
 // ══════════════════════════════════════════════════════════════════
 
 const EX_BASIC = {
-  C2: '대한정밀산업', C3: '자동차부품제조업', C4: 'http://www.daehan-example.co.kr/',
-  C5: '031-777-2200', C6: '경기도 평택시 산단로 108',
-  C7: 'daehan', C8: 'daehan', C9: '산업용전력(을) - 고압 A - 선택 Ⅱ',
-  C10: '0212345678', C11: 'kepco-pw-2026',
-  C12: '이창범', C13: '차장', C14: '010-2345-6789', C15: 'cb.lee@daehan-example.co.kr',
-  C19: 3, D19: 4, E19: 5, F19: 48000,
-  C20: 2016, C21: 320, C22: 9800, C23: 24,
-  C24: 42000, C25: 50000,
-  C27: '전기', C28: 'kWh', C29: '전력', C30: 0.00023, C31: 0.0004594, C32: 151.2,
+  // 사업장
+  C2: '대한정밀산업', C3: 'daehan', C4: '자동차부품제조업',
+  C5: '경기도 평택시 산단로 108', C6: '031-777-2200', C7: 'daehan',
+  // 담당자
+  C10: '이창범', C11: '차장', C12: '010-2345-6789', C13: 'cb.lee@daehan-example.co.kr',
+  // 수전 계약
+  C16: '산업용전력(을) - 고압 A - 선택 Ⅱ', C17: 42000, C18: 50000,
+  // 에너지원 (전력 외를 함께 집계할 때만)
+  C21: '전기', C22: 'kWh', C23: 0.00023, C24: 0.0004594, C25: 151.2,
+  D21: '도시가스', D22: 'Nm3', D23: 0.001, D24: 0.0022, D25: 980,
 };
 
 // [장비ID, 장비타입, 제품명, 측정설비, 위치, IP]
@@ -282,36 +283,39 @@ function sheetBasic(wb, example) {
   ws.getCell('A1').value = 'FEMS 수용가 정보';
   ws.getCell('A1').font = { bold: true, size: 13 };
 
-  const labels = [
-    ['A2', '회사정보'], ['B2', '* 회사명'], ['B3', '업종'], ['B4', '홈페이지 주소'],
-    ['B5', '* 전화번호'], ['B6', '* 주소'],
-    ['A7', '신청정보'], ['B7', '* FEMS 마스터 계정ID'], ['B8', '* 공장코드(접속주소)'], ['B9', '* 신청 요금제'],
-    ['A10', '한전파워플래너'], ['B10', '계정'], ['B11', '비밀번호'],
-    ['A12', '수용가 담당자 정보'], ['B12', '* 담당자명'], ['B13', '직급'], ['B14', '* 휴대전화번호'], ['B15', '* 이메일 주소'],
-    ['A16', '기타'], ['B16', '에너지원'], ['B18', '건물규모'], ['B20', '준공년도'], ['B21', '상주인력'],
-    ['B22', '연평균 에너지 사용량'], ['B23', '일 평균 운영시간'],
-    ['A24', 'FEMS 설정'], ['B24', '* 요금 적용 전력'], ['B25', '* 수전용량'],
-    ['A27', '에너지 정보'], ['B27', '종류'], ['B28', '에너지원 기본 단위'], ['B29', '탭표시명'],
-    ['B30', '석유환산계수[toe/기본단위]'], ['B31', '탄소배출계수 [tco2/기본단위]'], ['B32', '에너지 단가 [원/기본단위]'],
-  ];
-  for (const [cell, v] of labels) {
-    ws.getCell(cell).value = v;
-    ws.getCell(cell).font = { bold: /^A/.test(cell), size: 10 };
-    if (/^A/.test(cell)) ws.getCell(cell).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.section } };
+  // 라벨은 스키마(BASIC_FIELDS)에서 만들어진다 — 열을 고치면 양식이 저절로 따라온다
+  for (const g of S.BASIC_GROUPS) {
+    const cell = ws.getCell(`A${g.row}`);
+    cell.value = g.title;
+    cell.font = { bold: true, size: 10 };
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.section } };
+    ws.getCell(`B${g.row}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.section } };
+  }
+  for (const f of S.BASIC_FIELDS) {
+    const row = Number(f.cell.replace(/\D+/g, ''));
+    ws.getCell(`B${row}`).value = (f.required ? '* ' : '') + f.label;
+    ws.getCell(`B${row}`).font = { size: 10 };
   }
 
-  ws.getCell('C16').value = '전기'; ws.getCell('D16').value = '가스';
-  ws.getCell('E16').value = 'LPG'; ws.getCell('F16').value = '기타';
-  ws.getCell('C18').value = '동'; ws.getCell('D18').value = '존';
-  ws.getCell('E18').value = '층'; ws.getCell('F18').value = '연면적';
-  ws.getCell('G20').value = '년'; ws.getCell('G21').value = '명';
-  ws.getCell('G22').value = 'toe'; ws.getCell('G23').value = 'hour/day';
-  ws.getCell('G24').value = 'kW'; ws.getCell('G25').value = 'kW';
+  // 에너지원 (선택) — 열 하나가 에너지원 1개
+  const eiTop = S.ENERGY_INFO.rows[0].row - 1;
+  ws.getCell(`A${eiTop}`).value = '에너지원 (선택)';
+  ws.getCell(`A${eiTop}`).font = { bold: true, size: 10 };
+  ws.getCell(`A${eiTop}`).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: C.section } };
+  ws.getCell(`C${eiTop}`).value = '전력 외 에너지(가스·증기·용수…)를 함께 집계할 때만 채웁니다. 열 하나가 에너지원 1개.';
+  ws.getCell(`C${eiTop}`).font = { size: 9, color: { argb: C.note } };
+  for (const r of S.ENERGY_INFO.rows) {
+    ws.getCell(`B${r.row}`).value = r.label;
+    ws.getCell(`B${r.row}`).font = { size: 10 };
+  }
+
+  ws.getCell('G17').value = 'kW';
+  ws.getCell('G18').value = 'kW';
 
   // 입력칸 서식
   for (const f of S.BASIC_FIELDS) styleInput(ws.getCell(f.cell), !!f.required);
-  for (const col of ['C', 'D', 'E', 'F']) {
-    for (const r of [17, 19, 27, 28, 29, 30, 31, 32]) styleInput(ws.getCell(`${col}${r}`), r === 27);
+  for (const col of S.ENERGY_INFO.cols) {
+    for (const r of S.ENERGY_INFO.rows) styleInput(ws.getCell(`${col}${r.row}`), false);
   }
 
   if (example) for (const [cell, v] of Object.entries(EX_BASIC)) ws.getCell(cell).value = v;
@@ -469,14 +473,14 @@ async function buildTemplate(opts = {}) {
     ['장비ID', '1번부터 중복 없이 부여합니다.'],
     ['제품명', `${S.SHEETS.DEVICE_PROFILE} 시트에 정의된 제품명과 같아야 합니다.`],
     ['IP 주소', 'IPv4 형식. 예) 10.10.1.11'],
-    ['고정값', '프로토콜 타입~사용여부는 예시와 동일하게 두세요 (필요 시 변경).'],
+    ['포트 · 전송주기', '기본 502 / 15초. 계측기 설정과 다르면 바꿉니다.'],
+    ['사용여부', 'N 이면 도면에 회색으로 표시되고 알람에서 제외됩니다.'],
   ], 'T');
   if (example) {
     fillRows(dv, S.DEVICE_SHEET, EX_DEVICES.map((d) => ({
-      deviceId: d[0], deviceType: d[1], productName: d[2], measuredFacility: d[3],
-      location: d[4], ip: d[5], installedAt: new Date(Date.UTC(2026, 2, 10, 9, 0)),
-      protocolType: '01', engineId: 1, offset: 0, port: 502,
-      sendCycle: 15, monitorCycle: 15, powerChannels: 40, calcYn: 'Y', useYn: 'Y',
+      deviceId: d[0], deviceType: d[1], productName: d[2],
+      location: d[4], ip: d[5], port: 502, powerChannels: 40, sendCycle: 15,
+      installedAt: new Date(Date.UTC(2026, 2, 10, 9, 0)), useYn: 'Y',
     })));
   }
 

@@ -21,10 +21,11 @@
       </div>
 
       <nav class="sc-tabs" id="tabs">
-        <button data-view="upload" class="active">엑셀 업로드</button>
+        <button data-view="upload" class="active">도면 만들기</button>
         <button data-view="editor">SCADA 도면</button>
         <button data-view="dashboard">대시보드</button>
         <button data-view="points">연동 포인트</button>
+        <button data-view="glossary" data-free="1">기호 해설</button>
       </nav>
 
       <div class="sc-topbar-right">
@@ -50,6 +51,23 @@
               <label>계약전력 (kW)<input id="nbContract" type="number" step="1" placeholder="선택" /></label>
               <button class="sc-btn sc-btn-primary" id="newBlankBtn">새 도면 만들기</button>
             </div>
+          </div>
+
+          <!-- 전기도면(이미지·PDF) 가져오기 -->
+          <div class="sc-newdraw sc-import">
+            <div class="sc-newdraw-head">
+              <strong>전기도면(그림·PDF) 가져오기</strong>
+              <span class="sc-muted">
+                CAD 로 뽑은 <b>벡터 PDF</b> 는 글자를 읽어 기기·정격까지 자동 인식합니다.
+                <b>스캔·사진</b> 은 도면을 밑그림으로 깔아 드리니 심볼 메뉴바로 따라 그리면 됩니다.
+              </span>
+            </div>
+            <div class="sc-newdraw-form">
+              <button class="sc-btn sc-btn-primary" id="importDrawingBtn">도면 파일 선택</button>
+              <span class="sc-muted" id="importHint">.pdf · .png · .jpg</span>
+              <input type="file" id="drawingInput" accept=".pdf,.png,.jpg,.jpeg,.webp" hidden />
+            </div>
+            <div class="sc-import-result" id="importResult" hidden></div>
           </div>
 
           <div class="sc-dropzone" id="dropzone" tabindex="0" role="button" aria-label="엑셀 파일 업로드">
@@ -144,6 +162,18 @@
               <button class="sc-btn sc-btn-ghost" id="relayoutBtn">자동 정렬</button>
             </div>
             <div class="sc-tool-group">
+              <label class="sc-check" title="켜면 기호를 고른 뒤 도면 위를 클릭한 자리에 놓입니다">
+                <input type="checkbox" id="penChk" /> 따라 그리기
+              </label>
+            </div>
+            <div class="sc-tool-group" id="underlayBar" hidden>
+              <span class="sc-muted">밑그림</span>
+              <input type="range" id="ulOpacity" min="0" max="100" value="45" title="밑그림 투명도" />
+              <button class="sc-btn sc-btn-ghost" id="ulSmaller" title="밑그림 축소">－</button>
+              <button class="sc-btn sc-btn-ghost" id="ulBigger" title="밑그림 확대">＋</button>
+              <button class="sc-btn sc-btn-ghost" id="ulRemove" title="밑그림 제거">밑그림 지우기</button>
+            </div>
+            <div class="sc-tool-group">
               <button class="sc-btn sc-btn-ghost" id="tieBtn" title="두 모선을 연락(TIE) 차단기로 잇습니다">연락(TIE) 연결</button>
               <label class="sc-check" title="도면 표제란과 심볼 범례">
                 <input type="checkbox" id="frameChk" checked /> 표제란·범례
@@ -223,6 +253,20 @@
       </div>
     </section>
 
+    <!-- ─────────────────────────── 기호 해설 ─────────────────────────── -->
+    <section class="sc-view" id="view-glossary" hidden>
+      <div class="sc-gl-wrap">
+        <div class="sc-panel">
+          <div class="sc-panel-head">
+            <h2>전기도면 기호 · 에너지원 해설</h2>
+            <input class="sc-gl-search" id="glSearch" placeholder="기호·기기번호·용어 검색 (예: VCB, 87T, AF, 접지)" />
+          </div>
+          <div class="sc-gl-tabs" id="glTabs"></div>
+          <div class="sc-gl-body" id="glBody"></div>
+        </div>
+      </div>
+    </section>
+
     <!-- ─────────────────────────── 대시보드 ─────────────────────────── -->
     <section class="sc-view" id="view-dashboard" hidden>
       <div class="sc-dash-grid">
@@ -292,6 +336,8 @@
     <script src="/js/scada/report.js"></script>
     <script src="/js/scada/pdf.js"></script>
     <script src="/js/scada/alarms.js"></script>
+    <script src="/js/scada/glossary.js"></script>
+    <script src="/js/scada/drawing-import.js"></script>
     <script src="/js/scada/canvas.js"></script>
     <script src="/js/scada/app.js"></script>
   </body>

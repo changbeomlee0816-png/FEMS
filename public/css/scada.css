@@ -704,3 +704,114 @@
   background: var(--surface-2);
 }
 .sc-palette-hint b { color: var(--wire-live); font-weight: 600; }
+
+/* ── 전기도면 가져오기 ─────────────────────────────────────────── */
+.sc-import .sc-newdraw-head span b { color: var(--text-secondary); font-weight: 600; }
+.sc-import-result {
+  margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--line-soft);
+}
+.sc-imp-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 7px; flex-wrap: wrap; }
+.sc-imp-head strong { font-size: 13.2px; }
+.sc-imp-note { font-size: 12.8px; color: var(--text-secondary); line-height: 1.7; }
+.sc-imp-note b { color: var(--text-primary); }
+.sc-imp-bad { font-size: 13px; color: #ffb3b5; }
+.sc-imp-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2px; max-height: 240px; overflow-y: auto; margin: 8px 0;
+}
+.sc-imp-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 8px; border-radius: 5px; cursor: pointer; font-size: 12.4px;
+}
+.sc-imp-row:hover { background: var(--surface-2); }
+.sc-imp-row input { accent-color: #35d0a5; margin: 0; }
+.sc-imp-sym { width: 26px; height: 22px; flex: none; }
+.sc-imp-name { color: var(--text-primary); font-weight: 600; white-space: nowrap; }
+.sc-imp-label {
+  color: var(--text-muted); font-size: 11.4px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+.sc-imp-actions { display: flex; gap: 8px; margin-top: 10px; }
+
+/* 밑그림 · 트레이싱 펜 */
+.underlay { pointer-events: none; }
+.sc-canvas.is-pen { cursor: crosshair; }
+.sc-sym.is-pen {
+  background: rgba(53, 208, 165, .16); border-color: var(--wire-live); color: var(--text-primary);
+}
+.sc-sym { position: relative; }
+.sc-sym-help {
+  position: absolute; top: 2px; right: 3px;
+  width: 13px; height: 13px; line-height: 13px; text-align: center;
+  border-radius: 50%; background: var(--surface-3); color: var(--text-muted);
+  font-size: 9px; font-style: normal; opacity: 0; transition: opacity .12s;
+}
+.sc-sym:hover .sc-sym-help { opacity: 1; }
+.sc-sym-help:hover { background: #1d6fd0; color: #fff; }
+#underlayBar input[type="range"] { width: 84px; accent-color: var(--wire-live); }
+
+/* ── 기호 해설 ─────────────────────────────────────────────────── */
+.sc-gl-wrap { max-width: 1100px; margin: 0 auto; }
+.sc-gl-search {
+  background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px;
+  color: var(--text-primary); padding: 7px 11px; font-size: 13px;
+  width: 340px; max-width: 50vw; font-family: inherit;
+}
+.sc-gl-search:focus { outline: none; border-color: #3a5290; }
+.sc-gl-tabs { display: flex; gap: 3px; padding: 10px 16px; border-bottom: 1px solid var(--line-soft); flex-wrap: wrap; }
+.sc-gl-tabs button {
+  background: transparent; border: 1px solid var(--line); color: var(--text-secondary);
+  border-radius: 999px; padding: 4px 13px; font-size: 12.5px; cursor: pointer; font-family: inherit;
+}
+.sc-gl-tabs button:hover { background: var(--surface-2); color: var(--text-primary); }
+.sc-gl-tabs button.active { background: #16305a; border-color: #2c5490; color: #cfe2ff; font-weight: 600; }
+.sc-gl-body { padding: 6px 16px 20px; max-height: calc(100vh - 230px); overflow-y: auto; }
+.sc-gl-lead { padding: 10px 2px 4px; }
+.sc-gl-h {
+  font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--text-muted); margin: 18px 0 8px; padding-bottom: 5px;
+  border-bottom: 1px solid var(--line-soft);
+}
+.sc-gl-card {
+  display: flex; gap: 13px; padding: 11px 12px; border-radius: 9px;
+  border: 1px solid var(--line-soft); background: var(--surface-1); margin-bottom: 7px;
+}
+.sc-gl-sym {
+  flex: none; width: 46px; height: 40px; border-radius: 6px;
+  background: var(--surface-2); display: flex; align-items: center; justify-content: center;
+}
+.sc-gl-sym svg { width: 40px; height: 34px; }
+.sc-gl-unit {
+  flex: none; width: 56px; height: 40px; border-radius: 6px; background: var(--surface-2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; color: #6fe0b6;
+}
+.sc-gl-txt { min-width: 0; }
+.sc-gl-txt h4 { margin: 0 0 4px; font-size: 13.4px; font-weight: 650; }
+.sc-gl-en { font-size: 11.4px; color: var(--text-muted); font-weight: 400; margin-left: 5px; }
+.sc-gl-ansi {
+  font-style: normal; font-size: 10.5px; margin-left: 4px; padding: 1px 6px;
+  border-radius: 999px; background: rgba(57, 135, 229, .16); color: #9cc4f5; font-weight: 700;
+}
+.sc-gl-what { font-size: 12.8px; color: var(--text-secondary); line-height: 1.65; }
+.sc-gl-read, .sc-gl-note {
+  font-size: 12.4px; color: var(--text-secondary); line-height: 1.7; margin-top: 5px;
+  padding-left: 54px; text-indent: -54px;
+}
+.sc-gl-read span, .sc-gl-note span {
+  display: inline-block; width: 48px; margin-right: 6px; text-indent: 0;
+  font-size: 10.5px; font-weight: 700; color: var(--text-muted); text-align: right;
+}
+.sc-gl-note span { color: #c9a24a; }
+.sc-gl-read code, .sc-gl-note code {
+  background: var(--surface-2); padding: 1px 5px; border-radius: 4px; color: #b9d4ff; font-size: 11.6px;
+}
+.sc-gl-read b, .sc-gl-note b, .sc-gl-what b { color: var(--text-primary); }
+.sc-gl-table { margin-top: 4px; }
+.sc-gl-notation { display: grid; gap: 3px; }
+.sc-gl-notation > div {
+  display: flex; gap: 12px; padding: 9px 11px; border-radius: 7px; background: var(--surface-1);
+  border: 1px solid var(--line-soft);
+}
+.sc-gl-notation dt { flex: none; width: 130px; font-weight: 700; font-size: 12.6px; color: #b9d4ff; }
+.sc-gl-notation dd { margin: 0; font-size: 12.6px; color: var(--text-secondary); line-height: 1.65; }

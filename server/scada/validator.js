@@ -265,9 +265,6 @@ function validateBasic(rep, parsed) {
     );
   }
 
-  if (Number.isFinite(b.dailyOperatingHours.value) && b.dailyOperatingHours.value > 24) {
-    rep.error(b.dailyOperatingHours, 'OUT_OF_RANGE', `일 평균 운영시간은 24 이하여야 합니다. 현재 값: ${b.dailyOperatingHours.value}`);
-  }
 }
 
 // ── 1)장비 ─────────────────────────────────────────────────────────

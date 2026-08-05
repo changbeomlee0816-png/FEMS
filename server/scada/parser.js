@@ -72,19 +72,7 @@ function parseBasic(wb) {
     basic[f.key] = field(sh, col, row, f.label, castFor(f.type));
   }
 
-  // 기타 > 에너지원 사용 여부 (라벨 16행 / 값 17행)
-  basic.energyUse = S.ENERGY_USE.cols.map((col) => ({
-    label: field(sh, col, S.ENERGY_USE.labelRow, '에너지원').value,
-    ...field(sh, col, S.ENERGY_USE.valueRow, '에너지원 값'),
-  }));
-
-  // 기타 > 건물규모 (동/존/층/연면적)
-  basic.buildingScale = S.BUILDING_SCALE.cols.map((col) => ({
-    label: field(sh, col, S.BUILDING_SCALE.labelRow, '건물규모').value,
-    ...field(sh, col, S.BUILDING_SCALE.valueRow, '건물규모 값', asNumber),
-  }));
-
-  // 에너지 정보 : 열 = 에너지원 슬롯 1~4
+  // 에너지원 정보 : 열 = 에너지원 슬롯 1~4
   basic.energyInfo = S.ENERGY_INFO.cols.map((col, i) => {
     const slot = { slot: i + 1, col };
     for (const r of S.ENERGY_INFO.rows) {

@@ -39,18 +39,12 @@ function buildModel(parsed) {
     },
     contractPower: val(b.contractPower),
     receivingCapacity: val(b.receivingCapacity),
-    builtYear: val(b.builtYear),
-    headcount: val(b.headcount),
-    annualEnergyToe: val(b.annualEnergyToe),
-    dailyOperatingHours: val(b.dailyOperatingHours),
-    buildingScale: b.buildingScale.filter((x) => x.value != null).map((x) => ({ label: x.label, value: x.value })),
     energyInfo: b.energyInfo
       .filter((s) => s.__filled)
       .map((s) => ({
         slot: s.slot,
         kind: val(s.kind),
         baseUnit: val(s.baseUnit),
-        tabName: val(s.tabName),
         toeFactor: val(s.toeFactor),
         co2Factor: val(s.co2Factor),
         unitPrice: val(s.unitPrice),
@@ -62,17 +56,13 @@ function buildModel(parsed) {
     deviceType: val(r.deviceType),
     productName: val(r.productName),
     productKey: codes.normalizeKey(val(r.productName)),
-    measuredFacility: val(r.measuredFacility),
     location: val(r.location),
     ip: val(r.ip),
     port: val(r.port),
-    protocolType: val(r.protocolType),
-    engineId: val(r.engineId),
-    offset: val(r.offset),
+
     sendCycle: val(r.sendCycle),
     monitorCycle: val(r.monitorCycle),
     powerChannels: val(r.powerChannels),
-    calc: String(val(r.calcYn) || '').toUpperCase() === 'Y',
     active: String(val(r.useYn) || 'Y').toUpperCase() !== 'N',
     installedAt: val(r.installedAt) instanceof Date ? val(r.installedAt).toISOString() : null,
   }));

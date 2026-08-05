@@ -27,11 +27,6 @@ function blankModel(input = {}) {
     manager: { name: null, rank: null, mobile: null, email: null },
     contractPower: input.contractPower != null ? Number(input.contractPower) : null,
     receivingCapacity: input.receivingCapacity != null ? Number(input.receivingCapacity) : null,
-    builtYear: null,
-    headcount: null,
-    annualEnergyToe: null,
-    dailyOperatingHours: null,
-    buildingScale: [],
     energyInfo: [],
   };
 

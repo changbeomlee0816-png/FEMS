@@ -28,6 +28,9 @@
     'measureBtn', 'measureMenu', 'measureBody', 'measureCount', 'measureResetBtn', 'measureCloseBtn',
     'palette', 'paletteTabs', 'paletteItems', 'paletteHint', 'paletteToggle', 'tieBtn', 'frameChk',
     'nbCompany', 'nbCode', 'nbVoltage', 'nbContract', 'newBlankBtn',
+    'importDrawingBtn', 'drawingInput', 'importResult', 'importHint',
+    'underlayBar', 'ulOpacity', 'ulSmaller', 'ulBigger', 'ulRemove', 'penChk',
+    'glSearch', 'glTabs', 'glBody',
     'exportPdfBtn', 'exportSvgBtn', 'exportJsonBtn', 'saveBtn', 'loadChart', 'groupChart', 'siteInfo',
     'facilityBody', 'facilityCount', 'pointsBody', 'pointsCount', 'publishBtn', 'toast',
   ].forEach((id) => (els[id] = $(id)));
@@ -41,6 +44,8 @@
     zone: '',              // 선택된 구역코드 ('' = 전체)
     acked: new Set(),      // 확인 처리한 알람 키
     palette: '전원',        // 심볼 메뉴바에서 열려 있는 분류
+    glTab: '심볼',          // 기호 해설에서 열려 있는 분류
+    imported: null,        // 가져온 전기도면 (밑그림 + 인식 결과)
   };
 
   // ── 공통 UI ────────────────────────────────────────────────────
@@ -66,10 +71,11 @@
   function setView(view) {
     state.view = view;
     for (const btn of els.tabs.querySelectorAll('button')) btn.classList.toggle('active', btn.dataset.view === view);
-    for (const name of ['upload', 'editor', 'dashboard', 'points']) $(`view-${name}`).hidden = name !== view;
+    for (const name of ['upload', 'editor', 'dashboard', 'points', 'glossary']) $(`view-${name}`).hidden = name !== view;
     if (view === 'editor') setTimeout(() => Canvas.fit(), 30);
     if (view === 'dashboard') renderDashboard();
     if (view === 'points') renderPoints();
+    if (view === 'glossary') renderGlossary();
   }
 
   function tick() {
@@ -293,6 +299,151 @@
         .join('');
   }
 
+  // ── 전기도면 가져오기 ──────────────────────────────────────────
+  /**
+   * 그림·PDF 로 된 전기도면을 SCADA 도면으로 옮긴다.
+   *
+   * 벡터 PDF 는 글자를 읽어 기기까지 자동 인식하고, 스캔·사진은 밑그림으로
+   * 깔아 따라 그리게 한다. 어느 쪽이든 **결과물은 같은 도면 문서**다.
+   */
+  async function importDrawing(file) {
+    if (!file) return;
+    const btn = els.importDrawingBtn;
+    const label = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = '읽는 중…';
+    els.importResult.hidden = false;
+    els.importResult.innerHTML = `<p class="sc-muted">${esc(file.name)} 분석 중…</p>`;
+    try {
+      const res = await window.ScadaDrawingImport.read(file);
+      state.imported = res;
+      renderImportResult(res);
+    } catch (e) {
+      els.importResult.innerHTML = `<p class="sc-imp-bad">도면을 읽지 못했습니다 — ${esc(e.message)}</p>`;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = label;
+    }
+  }
+
+  function renderImportResult(res) {
+    const items = res.items || [];
+    const hasUnderlay = !!(res.underlay && res.underlay.dataUrl);
+
+    const rows = items.length
+      ? items
+          .map(
+            (it, i) => `<label class="sc-imp-row">
+              <input type="checkbox" data-imp="${i}" ${it.use ? 'checked' : ''} />
+              <svg class="sc-imp-sym" viewBox="0 0 26 22" aria-hidden="true">${Sym.draw(it.symbol, 13, 11, 8)}</svg>
+              <span class="sc-imp-name">${esc(it.name)}</span>
+              <span class="sc-imp-label">${esc(it.label)}</span>
+            </label>`
+          )
+          .join('')
+      : '';
+
+    els.importResult.innerHTML = `
+      <div class="sc-imp-head">
+        <strong>${esc(res.filename)}</strong>
+        <span class="sc-muted">${res.kind === 'pdf' ? 'PDF' : '이미지'} · 글자 ${(res.tokens || []).length}개 · 인식 ${items.length}개${hasUnderlay ? ' · 밑그림 있음' : ''}</span>
+      </div>
+      ${items.length
+        ? `<p class="sc-muted">아래 기기로 계통을 만들 수 있습니다. 잘못 잡힌 항목은 체크를 해제하세요.</p>
+           <div class="sc-imp-list">${rows}</div>`
+        : `<p class="sc-imp-note">
+             글자를 꺼낼 수 없는 <b>스캔·사진 도면</b>입니다 (도면 전체가 하나의 그림).
+             ${hasUnderlay
+               ? '이 도면을 <b>밑그림</b>으로 깔아 드립니다. 심볼 메뉴바에서 기호를 고른 뒤 도면 위를 클릭하면 그 자리에 놓입니다.'
+               : '밑그림으로 쓸 이미지를 찾지 못했습니다. 도면을 PNG·JPG 로 저장해 다시 올려 주세요.'}
+           </p>`}
+      <div class="sc-imp-actions">
+        <button class="sc-btn sc-btn-primary" id="impBuildBtn"${!items.length && !hasUnderlay ? ' disabled' : ''}>
+          ${items.length ? '이 내용으로 도면 만들기' : '밑그림 깔고 그리기 시작'}
+        </button>
+        <button class="sc-btn sc-btn-ghost" id="impCancelBtn">취소</button>
+      </div>`;
+
+    els.importResult.querySelectorAll('[data-imp]').forEach((cb) => {
+      cb.addEventListener('change', () => { items[Number(cb.dataset.imp)].use = cb.checked; });
+    });
+    const build = $('impBuildBtn');
+    if (build) build.addEventListener('click', () => buildFromDrawing(res));
+    const cancel = $('impCancelBtn');
+    if (cancel) cancel.addEventListener('click', () => { els.importResult.hidden = true; state.imported = null; });
+  }
+
+  /** 인식 결과 + 밑그림 → 새 도면 */
+  async function buildFromDrawing(res) {
+    const btn = $('impBuildBtn');
+    if (btn) { btn.disabled = true; btn.textContent = '만드는 중…'; }
+    try {
+      const base = String(res.filename || '전기도면').replace(/\.[^.]+$/, '');
+      const created = await api.createBlank({
+        company: (els.nbCompany.value || '').trim() || base,
+        factoryCode: (els.nbCode.value || '').trim() || 'SITE',
+        voltage: els.nbVoltage.value === '' ? null : Number(els.nbVoltage.value),
+        contractPower: els.nbContract.value === '' ? null : Number(els.nbContract.value),
+        name: `${base} 단선결선도`,
+      });
+      await loadProjects();
+      await openProject(created.project.id);
+      setView('editor');
+
+      const d = state.project.diagram;
+      const tree = window.ScadaDrawingImport.buildTree(res.items || []);
+      if (tree.length) {
+        // 자동 인식 결과로 계통을 세운다 (빈 도면의 기본 수전점은 첫 노드로 대체)
+        d.nodes = [];
+        d.edges = [];
+        const idByKey = {};
+        let seq = 0;
+        for (const t of tree) {
+          const parentId = t.parent ? idByKey[t.parent] : null;
+          const node = Canvas.addNode(t.symbol, parentId, { name: t.name });
+          if (!node) continue;
+          idByKey[t.key] = node.id;
+          seq++;
+          if (t.spec) {
+            if (t.spec.voltage != null) node.voltage = t.spec.voltage;
+            if (t.spec.trip != null) node.ratedCurrent = t.spec.trip;
+            if (t.spec.breakingCapacity != null) node.breakingCapacity = t.spec.breakingCapacity;
+            if (t.spec.ratedPower != null) node.ratedPower = t.spec.ratedPower;
+            if (t.spec.capacityKva != null && t.symbol === 'transformer') {
+              node.transformer = { capacity: t.spec.capacityKva, label: transformerLabel({ capacity: t.spec.capacityKva }) };
+            }
+            if (t.spec.tag) node.tag = t.spec.tag;
+            Canvas.refreshRating(node);
+          }
+        }
+        Canvas.autoLayout();
+        toast(`도면에서 기기 ${seq}개를 인식해 계통을 만들었습니다. 속성 패널에서 다듬으세요.`, 'ok');
+      }
+
+      if (res.underlay && res.underlay.dataUrl) {
+        Canvas.setUnderlay({ ...res.underlay, name: res.filename });
+        els.penChk.checked = true; // 밑그림을 깔면 바로 따라 그릴 수 있게
+        if (!tree.length) {
+          toast('밑그림을 깔았습니다. 심볼 메뉴바에서 기호를 고른 뒤 도면 위를 클릭하세요.', 'ok');
+        }
+      }
+      syncUnderlayBar();
+      renderMainStrip();
+      renderPalette();
+      markDirty();
+    } catch (e) {
+      toast('도면을 만들지 못했습니다: ' + e.message, 'error');
+      if (btn) { btn.disabled = false; btn.textContent = '다시 시도'; }
+    }
+  }
+
+  /** 밑그림 도구막대 표시/동기화 */
+  function syncUnderlayBar() {
+    const u = Canvas.underlay;
+    els.underlayBar.hidden = !u;
+    if (u) els.ulOpacity.value = String(Math.round((u.opacity == null ? 0.45 : u.opacity) * 100));
+  }
+
   // ── 심볼 메뉴바 (팔레트) ───────────────────────────────────────
   /**
    * 단선결선도 기호 메뉴바.
@@ -310,21 +461,30 @@
       .join('');
 
     const items = (groups.filter((g) => g.name === state.palette)[0] || { items: [] }).items;
+    const pen = Canvas.pen;
     els.paletteItems.innerHTML = items
-      .map(
-        (it) => `<button class="sc-sym" data-sym="${esc(it.id)}" title="${esc(it.label)} — 클릭하면 선택한 계통 아래에 추가">
+      .map((it) => {
+        const g = window.ScadaGlossary.bySymbol(it.id);
+        const tip = [it.label, g && g.en, g && g.what].filter(Boolean).join(' — ');
+        return `<button class="sc-sym${pen === it.id ? ' is-pen' : ''}" data-sym="${esc(it.id)}" title="${esc(tip)}">
             <svg viewBox="0 0 30 26" aria-hidden="true">${Sym.draw(it.id, 15, 13, 9)}</svg>
             <span class="sc-sym-name">${esc(it.label)}</span>
-          </button>`
-      )
+            <i class="sc-sym-help" data-help="${esc(it.id)}" title="이 기호 설명 보기">?</i>
+          </button>`;
+      })
       .join('');
 
     const sel = state.project && state.project.diagram.nodes.filter((n) => n.id === Canvas.selectedId)[0];
+    const penSpec = pen && Sym.byId(pen);
     els.paletteHint.innerHTML = Canvas.tieFrom
       ? '연락(TIE) 연결 중 — <b>상대편 설비를 클릭</b>하세요. (Esc 취소)'
-      : sel
-        ? `기호를 누르면 <b>${esc(sel.name)}</b> 아래에 붙습니다. 선택을 해제하면 새 수전 계통으로 들어갑니다.`
-        : '설비를 먼저 선택하면 그 아래에 붙고, 선택이 없으면 <b>새 수전 계통</b>으로 추가됩니다.';
+      : penSpec
+        ? `<b>${esc(penSpec.label)}</b> 를 들고 있습니다 — <b>도면 위를 클릭</b>하면 그 자리에 놓입니다. 연달아 찍을 수 있고, Esc 로 내려놓습니다.`
+        : els.penChk.checked
+          ? '<b>따라 그리기</b> 켜짐 — 기호를 고른 뒤 도면 위를 클릭하면 그 자리에 놓입니다.'
+          : sel
+            ? `기호를 누르면 <b>${esc(sel.name)}</b> 아래에 붙습니다. 밑그림을 따라 그리려면 도구막대의 <b>따라 그리기</b>를 켜세요.`
+            : '설비를 먼저 선택하면 그 아래에 붙고, 선택이 없으면 <b>새 수전 계통</b>으로 추가됩니다.';
   }
 
   /** 엑셀 없이 새 도면 시작 */
@@ -353,6 +513,100 @@
       btn.disabled = false;
       btn.textContent = label;
     }
+  }
+
+  // ── 기호 해설 ──────────────────────────────────────────────────
+  /**
+   * 전기도면을 처음 보는 사람이 기호와 숫자를 읽을 수 있게 하는 화면.
+   * 「전기도면 해설」의 항목별 설명을 심볼 단위로 정리해 두었다.
+   */
+  const GL_TABS = ['심볼', '기기번호(ANSI)', '표기 읽는 법', '에너지원'];
+
+  function renderGlossary() {
+    const G = window.ScadaGlossary;
+    const q = (els.glSearch.value || '').trim();
+    const found = q ? G.search(q) : null;
+
+    els.glTabs.innerHTML = GL_TABS.map(
+      (t) => `<button data-gl="${esc(t)}" class="${t === state.glTab ? 'active' : ''}">${esc(t)}</button>`
+    ).join('');
+
+    if (found) {
+      const total = found.symbols.length + found.ansi.length + found.notation.length + found.energy.length;
+      els.glBody.innerHTML = total
+        ? (found.symbols.length ? `<h3 class="sc-gl-h">심볼 ${found.symbols.length}</h3>` + found.symbols.map(symbolCard).join('') : '') +
+          (found.ansi.length ? `<h3 class="sc-gl-h">기기번호 ${found.ansi.length}</h3>` + ansiTable(found.ansi) : '') +
+          (found.notation.length ? `<h3 class="sc-gl-h">표기 ${found.notation.length}</h3>` + notationList(found.notation) : '') +
+          (found.energy.length ? `<h3 class="sc-gl-h">에너지원 ${found.energy.length}</h3>` + found.energy.map(energyCard).join('') : '')
+        : `<p class="sc-empty">‘${esc(q)}’ 에 해당하는 항목이 없습니다.</p>`;
+      return;
+    }
+
+    if (state.glTab === '심볼') {
+      els.glBody.innerHTML = Sym.GROUPS.map(
+        (g) => `<h3 class="sc-gl-h">${esc(g.name)}</h3>` +
+          g.items.map((it) => symbolCard(it.id)).join('')
+      ).join('');
+    } else if (state.glTab === '기기번호(ANSI)') {
+      els.glBody.innerHTML =
+        '<p class="sc-muted sc-gl-lead">단선결선도의 원 안 숫자는 ANSI/IEEE C37.2 기기번호다. 보호계전기가 무엇을 보는지 알려 준다.</p>' +
+        ansiTable(window.ScadaGlossary.ANSI);
+    } else if (state.glTab === '표기 읽는 법') {
+      els.glBody.innerHTML =
+        '<p class="sc-muted sc-gl-lead">도면의 숫자·약어를 읽는 법. AF/AT 를 헷갈리면 차단기를 잘못 고른다.</p>' +
+        notationList(window.ScadaGlossary.NOTATION);
+    } else {
+      els.glBody.innerHTML =
+        '<p class="sc-muted sc-gl-lead">FEMS 가 집계하는 에너지원과 단위. 전력만 보면 공장 에너지의 절반을 놓친다.</p>' +
+        window.ScadaGlossary.ENERGY.map(energyCard).join('');
+    }
+  }
+
+  function symbolCard(id) {
+    const g = window.ScadaGlossary.bySymbol(id);
+    const spec = Sym.byId(id);
+    if (!g) {
+      return `<article class="sc-gl-card">
+          <div class="sc-gl-sym"><svg viewBox="0 0 40 34">${Sym.draw(id, 20, 17, 12)}</svg></div>
+          <div class="sc-gl-txt"><h4>${esc((spec && spec.label) || id)}</h4><p class="sc-muted">해설 준비 중</p></div>
+        </article>`;
+    }
+    const md = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code>$1</code>');
+    return `<article class="sc-gl-card">
+        <div class="sc-gl-sym"><svg viewBox="0 0 40 34">${Sym.draw(id, 20, 17, 12)}</svg></div>
+        <div class="sc-gl-txt">
+          <h4>${esc(g.name)} <span class="sc-gl-en">${esc(g.en || '')}</span>
+            ${(g.ansi || []).map((a) => `<i class="sc-gl-ansi">${esc(a)}</i>`).join('')}</h4>
+          <p class="sc-gl-what">${md(g.what)}</p>
+          ${g.read ? `<p class="sc-gl-read"><span>도면 읽기</span>${md(g.read)}</p>` : ''}
+          ${g.note ? `<p class="sc-gl-note"><span>실무</span>${md(g.note)}</p>` : ''}
+        </div>
+      </article>`;
+  }
+
+  function ansiTable(list) {
+    return `<table class="sc-table sc-gl-table">
+        <thead><tr><th style="width:110px">기기번호</th><th style="width:200px">명칭</th><th>하는 일</th></tr></thead>
+        <tbody>${list.map((a) => `<tr><td><code>${esc(a.code)}</code></td><td>${esc(a.name)}</td><td>${esc(a.desc)}</td></tr>`).join('')}</tbody>
+      </table>`;
+  }
+
+  function notationList(list) {
+    const md = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`(.+?)`/g, '<code>$1</code>');
+    return `<dl class="sc-gl-notation">${list
+      .map((n) => `<div><dt>${esc(n.term)}</dt><dd>${md(n.what)}</dd></div>`)
+      .join('')}</dl>`;
+  }
+
+  function energyCard(e) {
+    return `<article class="sc-gl-card is-energy">
+        <div class="sc-gl-unit">${esc(e.unit)}</div>
+        <div class="sc-gl-txt">
+          <h4>${esc(e.name)}</h4>
+          <p class="sc-gl-what">${esc(e.what)}</p>
+          <p class="sc-gl-note"><span>실무</span>${esc(e.note)}</p>
+        </div>
+      </article>`;
   }
 
   // ── 표시 항목 메뉴 ─────────────────────────────────────────────
@@ -567,7 +821,7 @@
         <label>구역<select id="fZone">${zoneOptions}</select></label>
       </div>
       <div class="sc-field"><label for="fKind">기기종류</label><select id="fKind">${kindOptions}</select></div>
-      <div class="sc-field"><label for="fSymbol">심볼</label><select id="fSymbol">${symbolOptions}</select></div>
+      <div class="sc-field"><label for="fSymbol">심볼 <button class="sc-mini" id="fSymHelp" title="이 기호 설명 보기">설명</button></label><select id="fSymbol">${symbolOptions}</select></div>
       <div class="sc-field"><label for="fParent">상위 계통</label><select id="fParent">${parentOptions}</select></div>
 
       <div class="sc-subhead">정격</div>
@@ -640,6 +894,14 @@
       if (k && k.symbol) node.symbol = k.symbol;
     }, true);
     bind('fSymbol', (v) => { node.symbol = v; });
+    const symHelp = $('fSymHelp');
+    if (symHelp) {
+      symHelp.addEventListener('click', () => {
+        state.glTab = '심볼';
+        els.glSearch.value = (Sym.byId(node.symbol) || {}).label || node.symbol;
+        setView('glossary');
+      });
+    }
     bind('fParent', (v) => {
       if (!Canvas.setParent(node.id, v || null)) toast('자기 하위 계통을 상위로 지정할 수 없습니다.', 'error');
     }, true);
@@ -899,7 +1161,9 @@
     els.tabs.addEventListener('click', (e) => {
       const btn = e.target.closest('button');
       if (!btn) return;
-      if (btn.dataset.view !== 'upload' && !state.project) return toast('먼저 엑셀을 업로드하거나 저장된 도면을 여세요.', 'error');
+      if (btn.dataset.view !== 'upload' && !btn.dataset.free && !state.project) {
+        return toast('먼저 도면을 만들거나 저장된 도면을 여세요.', 'error');
+      }
       setView(btn.dataset.view);
     });
 
@@ -1005,9 +1269,28 @@
       renderPalette();
     });
     els.paletteItems.addEventListener('click', (e) => {
+      // ? 배지 — 기호 해설로 보낸다
+      const help = e.target.closest('[data-help]');
+      if (help) {
+        e.stopPropagation();
+        state.glTab = '심볼';
+        els.glSearch.value = (Sym.byId(help.dataset.help) || {}).label || help.dataset.help;
+        setView('glossary');
+        return;
+      }
       const b = e.target.closest('[data-sym]');
       if (!b) return;
       if (!state.project) return toast('먼저 도면을 여세요.', 'error');
+
+      // 따라 그리기(펜) 모드 — 기호를 잡고 도면 위를 클릭해 찍는다
+      if (els.penChk.checked) {
+        Canvas.setPen(Canvas.pen === b.dataset.sym ? null : b.dataset.sym);
+        renderPalette();
+        if (Canvas.pen) {
+          toast(`${(Sym.byId(Canvas.pen) || {}).label} 을(를) 들었습니다. 도면 위를 클릭해 찍으세요. (Esc 로 내려놓기)`, 'ok');
+        }
+        return;
+      }
       const parent = state.project.diagram.nodes.filter((n) => n.id === Canvas.selectedId)[0] || null;
       const node = Canvas.addNode(b.dataset.sym, parent ? parent.id : null);
       if (node) {
@@ -1015,6 +1298,46 @@
         renderPalette();
         toast(`${node.name} 을(를) ${parent ? parent.name + ' 아래에' : '새 수전 계통으로'} 추가했습니다.`, 'ok');
       }
+    });
+
+    els.penChk.addEventListener('change', () => {
+      if (!els.penChk.checked) Canvas.setPen(null);
+      renderPalette();
+    });
+
+    // 전기도면(그림·PDF) 가져오기
+    els.importDrawingBtn.addEventListener('click', () => els.drawingInput.click());
+    els.drawingInput.addEventListener('change', () => {
+      if (els.drawingInput.files[0]) importDrawing(els.drawingInput.files[0]);
+      els.drawingInput.value = '';
+    });
+
+    // 밑그림 조작
+    els.ulOpacity.addEventListener('input', () => {
+      Canvas.updateUnderlay({ opacity: Number(els.ulOpacity.value) / 100 });
+      markDirty();
+    });
+    els.ulBigger.addEventListener('click', () => { Canvas.scaleUnderlay(1.08); markDirty(); });
+    els.ulSmaller.addEventListener('click', () => { Canvas.scaleUnderlay(1 / 1.08); markDirty(); });
+    els.ulRemove.addEventListener('click', () => {
+      if (!window.confirm('밑그림을 지울까요? 그려 넣은 설비는 그대로 남습니다.')) return;
+      Canvas.setUnderlay(null);
+      syncUnderlayBar();
+      markDirty();
+    });
+
+    // 기호 해설
+    els.glTabs.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-gl]');
+      if (!b) return;
+      state.glTab = b.dataset.gl;
+      els.glSearch.value = '';
+      renderGlossary();
+    });
+    let glTimer = null;
+    els.glSearch.addEventListener('input', () => {
+      clearTimeout(glTimer);
+      glTimer = setTimeout(renderGlossary, 150);
     });
 
     // 모선 연락(TIE)
@@ -1065,6 +1388,7 @@
       if (e.key !== 'Escape') return;
       if (!els.measureMenu.hidden) toggleMeasureMenu(false);
       if (Canvas.tieFrom) { Canvas.startTie(null); renderPalette(); }
+      if (Canvas.pen) { Canvas.setPen(null); renderPalette(); }
     });
 
     // 구역 탭

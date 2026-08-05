@@ -178,6 +178,8 @@ const DEVICE_KINDS = [
   { code: 'VM', name: '전압계', group: '계측', symbol: 'voltmeter' },
   { code: 'LA', name: '피뢰기', group: '보호', symbol: 'la' },
   { code: 'SA', name: '서지흡수기', group: '보호', symbol: 'sa' },
+  { code: 'SPD', name: '서지보호기', group: '보호', symbol: 'spd' },
+  { code: 'ELD', name: '누전경보기', group: '보호', symbol: 'eld' },
 
   // 부하
   { code: 'MOTOR', name: '전동기부하', group: '부하', symbol: 'motor' },
@@ -201,6 +203,7 @@ const DEVICE_KINDS = [
   { code: 'BUS', name: '모선', group: '모선', symbol: 'busbar' },
   { code: 'GND', name: '접지', group: '보호', symbol: 'ground' },
   { code: 'CABLE', name: '케이블', group: '모선', symbol: 'cable' },
+  { code: 'CH', name: '케이블헤드', group: '모선', symbol: 'ch' },
 ];
 
 
