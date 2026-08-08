@@ -16,8 +16,11 @@
 
 SCADA 도면 제작 프로그램의 상세 문서: **[`docs/SCADA.md`](docs/SCADA.md)**
 
-- **전기도면(그림·PDF)을 올리면 됩니다.** CAD 로 뽑은 **벡터 PDF** 는 글자를 읽어 기기·정격까지
-  자동 인식하고, **스캔·사진**은 도면을 밑그림으로 깔아 그 위를 따라 그립니다.
+- **전력계통도 사진을 넣으면 AI 가 읽어서 SCADA 화면을 만들어 줍니다.** 도면을 찍은 사진·스캔·PDF 를
+  그대로 올리면, 기호와 결선은 물론 정격(22.9kV·600AF/500AT·500kVA)과 보호요소(50/51·87T),
+  변압기 결선(Dyn11)까지 판독해 수전점부터 말단 부하까지 계통을 세웁니다.
+  원본은 **옆에 나란히 깔려** 판독 결과와 바로 대조할 수 있고, 잘못 읽은 항목은 만들기 전에 뺄 수 있습니다.
+  (서버판은 `ANTHROPIC_API_KEY`, 공개 링크판은 화면에서 키를 한 번 넣으면 그 브라우저에만 저장됩니다.)
 - **엑셀 없이도 바로 그립니다.** `새 도면 만들기` → **심볼 메뉴바(60종 기호)** 로 계통을 그리고,
   전압·정격·보호요소·TAG·구역·변압기 제원까지 화면에서 입력합니다. 계측은 나중에 붙여도 됩니다.
 - **`기호 해설` 탭** — 60종 기호의 도면 읽는 법, ANSI 기기번호 28종, AF/AT·%Z 같은 표기,
@@ -65,7 +68,13 @@ SCADA 도면 제작 프로그램의 상세 문서: **[`docs/SCADA.md`](docs/SCAD
 ```bash
 npm install          # 최초 1회
 npm start            # 서버 실행 (http://localhost:3000)
+
+# 도면 사진 AI 판독까지 서버가 맡게 하려면 (선택)
+ANTHROPIC_API_KEY=sk-ant-... npm start
 ```
+
+키를 넣지 않아도 됩니다. 그때는 화면에서 키를 한 번 받아 브라우저가 직접 판독합니다
+(공개 링크판과 같은 방식이며, 키는 그 브라우저에만 저장됩니다).
 
 - `http://localhost:3000` → 통합 관제 대시보드
 - `http://localhost:3000/scada.html` → SCADA 도면 제작
@@ -183,7 +192,7 @@ server/
   simulator.js   데모 데이터 생성 & 연동 예제
   routes/api.js  REST API
   scada/         SCADA 도면 제작 (엑셀 파싱·검증·도면 생성·FEMS 연동)
-  routes/scada.js  도면 API
+  routes/scada.js  도면 API + 전력계통도 AI 판독(/analyze)
 public/
   index.html     통합 관제 대시보드
   scada.html     SCADA 도면 제작 화면

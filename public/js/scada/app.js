@@ -45,7 +45,9 @@
     acked: new Set(),      // 확인 처리한 알람 키
     palette: '전원',        // 심볼 메뉴바에서 열려 있는 분류
     glTab: '심볼',          // 기호 해설에서 열려 있는 분류
-    imported: null,        // 가져온 전기도면 (밑그림 + 인식 결과)
+    imported: null,        // 가져온 전기도면 (페이지 그림 + 글자)
+    analysis: null,        // AI 판독 결과 (계통 노드 목록)
+    aiCap: null,           // AI 판독 경로 (서버가 대신 부르는지)
   };
 
   // ── 공통 UI ────────────────────────────────────────────────────
@@ -299,12 +301,17 @@
         .join('');
   }
 
-  // ── 전기도면 가져오기 ──────────────────────────────────────────
+  // ── 전력계통도 사진 → AI 판독 ──────────────────────────────────
   /**
-   * 그림·PDF 로 된 전기도면을 SCADA 도면으로 옮긴다.
+   * 도면 사진(또는 PDF)을 올리면 **AI 가 그림을 직접 읽어** 계통을 세운다.
    *
-   * 벡터 PDF 는 글자를 읽어 기기까지 자동 인식하고, 스캔·사진은 밑그림으로
-   * 깔아 따라 그리게 한다. 어느 쪽이든 **결과물은 같은 도면 문서**다.
+   * 흐름은 세 단계다.
+   *   1) 파일에서 페이지 그림·글자를 꺼낸다      (drawing-import.js)
+   *   2) 그림을 Claude 에게 보여 계통 JSON 을 받는다 (vision.js)
+   *   3) 받은 계통을 도면 노드로 세우고, 원본을 밑그림으로 깔아 대조하게 한다
+   *
+   * 판독이 안 되는 상황(키 없음·통신 실패)에서도 막히지 않도록, 밑그림 위에
+   * 직접 그리는 길과 벡터 PDF 글자 인식 결과로 만드는 길을 함께 열어 둔다.
    */
   async function importDrawing(file) {
     if (!file) return;
@@ -313,11 +320,12 @@
     btn.disabled = true;
     btn.textContent = '읽는 중…';
     els.importResult.hidden = false;
-    els.importResult.innerHTML = `<p class="sc-muted">${esc(file.name)} 분석 중…</p>`;
+    els.importResult.innerHTML = `<p class="sc-muted">${esc(file.name)} 여는 중…</p>`;
+    state.analysis = null;
     try {
       const res = await window.ScadaDrawingImport.read(file);
       state.imported = res;
-      renderImportResult(res);
+      await runAnalysis(res);
     } catch (e) {
       els.importResult.innerHTML = `<p class="sc-imp-bad">도면을 읽지 못했습니다 — ${esc(e.message)}</p>`;
     } finally {
@@ -326,104 +334,232 @@
     }
   }
 
-  function renderImportResult(res) {
-    const items = res.items || [];
-    const hasUnderlay = !!(res.underlay && res.underlay.dataUrl);
-
-    const rows = items.length
-      ? items
-          .map(
-            (it, i) => `<label class="sc-imp-row">
-              <input type="checkbox" data-imp="${i}" ${it.use ? 'checked' : ''} />
-              <svg class="sc-imp-sym" viewBox="0 0 26 22" aria-hidden="true">${Sym.draw(it.symbol, 13, 11, 8)}</svg>
-              <span class="sc-imp-name">${esc(it.name)}</span>
-              <span class="sc-imp-label">${esc(it.label)}</span>
-            </label>`
-          )
-          .join('')
-      : '';
-
+  /** AI 판독 실행 (키를 새로 받아 다시 시도할 때도 여기로 온다) */
+  async function runAnalysis(res, opts) {
+    const pages = (res.pages || []).length || (res.underlay ? 1 : 0);
+    els.importResult.hidden = false;
     els.importResult.innerHTML = `
       <div class="sc-imp-head">
         <strong>${esc(res.filename)}</strong>
-        <span class="sc-muted">${res.kind === 'pdf' ? 'PDF' : '이미지'} · 글자 ${(res.tokens || []).length}개 · 인식 ${items.length}개${hasUnderlay ? ' · 밑그림 있음' : ''}</span>
+        <span class="sc-muted">${res.kind === 'pdf' ? 'PDF' : '이미지'}${pages ? ` · ${pages}장` : ''}</span>
       </div>
-      ${items.length
-        ? `<p class="sc-muted">아래 기기로 계통을 만들 수 있습니다. 잘못 잡힌 항목은 체크를 해제하세요.</p>
-           <div class="sc-imp-list">${rows}</div>`
-        : `<p class="sc-imp-note">
-             글자를 꺼낼 수 없는 <b>스캔·사진 도면</b>입니다 (도면 전체가 하나의 그림).
-             ${hasUnderlay
-               ? '이 도면을 <b>밑그림</b>으로 깔아 드립니다. 심볼 메뉴바에서 기호를 고른 뒤 도면 위를 클릭하면 그 자리에 놓입니다.'
-               : '밑그림으로 쓸 이미지를 찾지 못했습니다. 도면을 PNG·JPG 로 저장해 다시 올려 주세요.'}
-           </p>`}
+      <p class="sc-imp-busy">AI 가 도면을 판독하고 있습니다. 기기와 결선을 하나씩 읽는 중이라 20초쯤 걸립니다…</p>
+      <div class="sc-imp-progress"><i></i></div>`;
+
+    try {
+      if (!state.aiCap) state.aiCap = await window.ScadaVision.capability();
+      state.analysis = await window.ScadaVision.analyze(res, { ...(opts || {}), capability: state.aiCap });
+      renderAnalysis(res, state.analysis);
+    } catch (e) {
+      renderAnalysisFailed(res, e);
+    }
+  }
+
+  /** 판독 결과 화면 — 만들기 전에 사람이 한 번 훑어볼 수 있게 */
+  function renderAnalysis(res, a) {
+    // 층(depth) 을 계산해 계통 모양 그대로 들여쓴다
+    const byKey = {};
+    for (const it of a.items) byKey[it.key] = it;
+    const depthOf = (it) => {
+      let d = 0;
+      let cur = it.parent ? byKey[it.parent] : null;
+      while (cur && d < 12) { d++; cur = cur.parent ? byKey[cur.parent] : null; }
+      return d;
+    };
+
+    const rows = a.items
+      .map((it, i) => {
+        const spec = it.spec || {};
+        const bits = [
+          spec.tag,
+          spec.voltage != null ? (spec.voltage >= 1 ? `${spec.voltage}kV` : `${Math.round(spec.voltage * 1000)}V`) : null,
+          spec.capacityKva != null ? `${spec.capacityKva}kVA` : null,
+          spec.frame != null && spec.trip != null ? `${spec.frame}AF/${spec.trip}AT` : spec.trip != null ? `${spec.trip}A` : null,
+          spec.breakingCapacity != null ? `${spec.breakingCapacity}kA` : null,
+          spec.vectorGroup,
+          (spec.protection || []).join('·') || null,
+        ].filter(Boolean).join(' · ');
+        return `<label class="sc-imp-row" style="padding-left:${8 + depthOf(it) * 16}px">
+            <input type="checkbox" data-imp="${i}" ${it.use ? 'checked' : ''} />
+            <svg class="sc-imp-sym" viewBox="0 0 26 22" aria-hidden="true">${Sym.draw(it.symbol, 13, 11, 8)}</svg>
+            <span class="sc-imp-name">${esc(it.name)}</span>
+            <span class="sc-imp-label">${esc(bits || it.label)}</span>
+          </label>`;
+      })
+      .join('');
+
+    const CONF = { high: ['잘 읽힘', 'ok'], medium: ['대체로 읽힘', 'warn'], low: ['흐릿함', 'bad'] };
+    const conf = CONF[a.confidence] || CONF.medium;
+
+    els.importResult.innerHTML = `
+      <div class="sc-imp-head">
+        <strong>${esc(a.title || res.filename)}</strong>
+        <span class="sc-imp-conf is-${conf[1]}">판독 ${conf[0]}</span>
+        <span class="sc-muted">기기 ${a.items.length}개 · 수전 ${a.roots}계통${a.ties.length ? ` · 연락 ${a.ties.length}` : ''}${a.via === 'browser' ? ' · 브라우저에서 판독' : ''}</span>
+      </div>
+      <p class="sc-muted">AI 가 도면에서 읽어 낸 계통입니다. <b>잘못 읽은 항목은 체크를 해제</b>하고 만드세요.
+        (만든 뒤에도 속성 패널에서 얼마든지 고칠 수 있고, 원본은 밑그림으로 깔립니다.)</p>
+      ${a.notes ? `<p class="sc-imp-note">📝 ${esc(a.notes)}</p>` : ''}
+      ${a.warnings.length ? `<p class="sc-imp-note">⚠️ ${a.warnings.map(esc).join('<br>')}</p>` : ''}
+      <div class="sc-imp-list">${rows}</div>
       <div class="sc-imp-actions">
-        <button class="sc-btn sc-btn-primary" id="impBuildBtn"${!items.length && !hasUnderlay ? ' disabled' : ''}>
-          ${items.length ? '이 내용으로 도면 만들기' : '밑그림 깔고 그리기 시작'}
-        </button>
+        <button class="sc-btn sc-btn-primary" id="impBuildBtn">이 계통으로 SCADA 도면 만들기</button>
+        <button class="sc-btn sc-btn-ghost" id="impRetryBtn">다시 판독</button>
         <button class="sc-btn sc-btn-ghost" id="impCancelBtn">취소</button>
       </div>`;
 
     els.importResult.querySelectorAll('[data-imp]').forEach((cb) => {
-      cb.addEventListener('change', () => { items[Number(cb.dataset.imp)].use = cb.checked; });
+      cb.addEventListener('change', () => { a.items[Number(cb.dataset.imp)].use = cb.checked; });
     });
-    const build = $('impBuildBtn');
-    if (build) build.addEventListener('click', () => buildFromDrawing(res));
-    const cancel = $('impCancelBtn');
-    if (cancel) cancel.addEventListener('click', () => { els.importResult.hidden = true; state.imported = null; });
+    bindImportActions(res);
   }
 
-  /** 인식 결과 + 밑그림 → 새 도면 */
+  /** 판독 실패 — 왜 안 됐는지 말하고, 막히지 않게 다른 길을 준다 */
+  function renderAnalysisFailed(res, err) {
+    const needKey = !!err.needKey;
+    const legacy = (res.items || []).length;
+    const hasUnderlay = !!(res.underlay && res.underlay.dataUrl);
+    const savedKey = window.ScadaVision.getKey();
+
+    els.importResult.innerHTML = `
+      <div class="sc-imp-head">
+        <strong>${esc(res.filename)}</strong>
+        <span class="sc-muted">${res.kind === 'pdf' ? 'PDF' : '이미지'}</span>
+      </div>
+      ${needKey
+        ? `<p class="sc-imp-note">
+             도면을 AI 로 판독하려면 <b>Anthropic API 키</b>가 필요합니다.
+             키는 <b>이 브라우저에만</b> 저장되고 서버로 보내지 않습니다.
+             (<a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a> 에서 발급)
+           </p>`
+        : `<p class="sc-imp-bad">판독하지 못했습니다 — ${esc(err.message)}</p>`}
+      <div class="sc-imp-key">
+        <input type="password" id="impKey" placeholder="sk-ant-…" value="${esc(savedKey)}" autocomplete="off" spellcheck="false" />
+        <button class="sc-btn sc-btn-primary" id="impKeyBtn">키 저장하고 판독</button>
+      </div>
+      <p class="sc-imp-note">
+        판독 없이도 도면을 만들 수 있습니다.
+        ${legacy ? `이 PDF 에서 글자로 알아낸 기기 <b>${legacy}개</b>로 계통을 세우거나, ` : ''}
+        ${hasUnderlay ? '원본을 <b>밑그림</b>으로 깔고 심볼 메뉴바로 따라 그리면 됩니다.' : '심볼 메뉴바로 직접 그리면 됩니다.'}
+      </p>
+      <div class="sc-imp-actions">
+        <button class="sc-btn sc-btn-ghost" id="impBuildBtn">${legacy ? '글자 인식 결과로 만들기' : '밑그림 깔고 직접 그리기'}</button>
+        <button class="sc-btn sc-btn-ghost" id="impCancelBtn">취소</button>
+      </div>`;
+
+    const keyBtn = $('impKeyBtn');
+    if (keyBtn) {
+      keyBtn.addEventListener('click', () => {
+        const key = ($('impKey').value || '').trim();
+        if (!key) return toast('API 키를 입력하세요.', 'error');
+        window.ScadaVision.setKey(key);
+        state.aiCap = { server: false };
+        runAnalysis(res, { key });
+      });
+    }
+    bindImportActions(res);
+  }
+
+  function bindImportActions(res) {
+    const build = $('impBuildBtn');
+    if (build) build.addEventListener('click', () => buildFromDrawing(res));
+    const retry = $('impRetryBtn');
+    if (retry) retry.addEventListener('click', () => runAnalysis(res));
+    const cancel = $('impCancelBtn');
+    if (cancel) {
+      cancel.addEventListener('click', () => {
+        els.importResult.hidden = true;
+        state.imported = null;
+        state.analysis = null;
+      });
+    }
+  }
+
+  /** 판독 결과(없으면 글자 인식 결과) + 밑그림 → 새 도면 */
   async function buildFromDrawing(res) {
     const btn = $('impBuildBtn');
     if (btn) { btn.disabled = true; btn.textContent = '만드는 중…'; }
     try {
+      const a = state.analysis;
+      const items = a
+        ? a.items.filter((i) => i.use)
+        : window.ScadaDrawingImport.buildTree(res.items || []);
+
       const base = String(res.filename || '전기도면').replace(/\.[^.]+$/, '');
+      const root = items.filter((i) => !i.parent)[0];
+      // 도면 표제란에서 읽은 제목이 이미 "…계통도" 면 그대로 쓴다 (겹쳐 붙이지 않는다)
+      const title = (a && a.title) || base;
       const created = await api.createBlank({
         company: (els.nbCompany.value || '').trim() || base,
         factoryCode: (els.nbCode.value || '').trim() || 'SITE',
-        voltage: els.nbVoltage.value === '' ? null : Number(els.nbVoltage.value),
+        voltage: els.nbVoltage.value === '' ? null
+          : Number(els.nbVoltage.value) || (root && root.spec && root.spec.voltage) || null,
         contractPower: els.nbContract.value === '' ? null : Number(els.nbContract.value),
-        name: `${base} 단선결선도`,
+        name: /결선도|계통도|도면|diagram/i.test(title) ? title : `${title} 단선결선도`,
       });
       await loadProjects();
       await openProject(created.project.id);
       setView('editor');
 
       const d = state.project.diagram;
-      const tree = window.ScadaDrawingImport.buildTree(res.items || []);
-      if (tree.length) {
-        // 자동 인식 결과로 계통을 세운다 (빈 도면의 기본 수전점은 첫 노드로 대체)
+      let placed = 0;
+      if (items.length) {
+        // 판독 결과로 계통을 세운다 (빈 도면의 기본 수전점은 첫 노드로 대체)
         d.nodes = [];
         d.edges = [];
         const idByKey = {};
-        let seq = 0;
-        for (const t of tree) {
-          const parentId = t.parent ? idByKey[t.parent] : null;
+        const kept = new Set(items.map((i) => i.key));
+        const all = new Map(((a && a.items) || items).map((i) => [i.key, i]));
+
+        // 체크를 푼 기기가 중간에 있으면, 그 위 살아 있는 기기에 이어 붙인다
+        const parentOf = (it) => {
+          let p = it.parent;
+          const seen = new Set();
+          while (p && !kept.has(p) && !seen.has(p)) {
+            seen.add(p);
+            p = (all.get(p) || {}).parent || null;
+          }
+          return p && idByKey[p] ? idByKey[p] : null;
+        };
+
+        // 변압기 아래로는 2차 전압이 흐른다. 도면에 전압이 안 적힌 인출회로가
+        // 특고압으로 표시되면 관제화면이 거짓말을 하게 되므로 여기서 이어 준다.
+        const downstreamV = {};
+        for (const t of items) {
+          const parentId = parentOf(t);
           const node = Canvas.addNode(t.symbol, parentId, { name: t.name });
           if (!node) continue;
           idByKey[t.key] = node.id;
-          seq++;
-          if (t.spec) {
-            if (t.spec.voltage != null) node.voltage = t.spec.voltage;
-            if (t.spec.trip != null) node.ratedCurrent = t.spec.trip;
-            if (t.spec.breakingCapacity != null) node.breakingCapacity = t.spec.breakingCapacity;
-            if (t.spec.ratedPower != null) node.ratedPower = t.spec.ratedPower;
-            if (t.spec.capacityKva != null && t.symbol === 'transformer') {
-              node.transformer = { capacity: t.spec.capacityKva, label: transformerLabel({ capacity: t.spec.capacityKva }) };
-            }
-            if (t.spec.tag) node.tag = t.spec.tag;
+          placed++;
+          applySpec(node, t);
+          if (t.spec.voltage == null && parentId && downstreamV[parentId] != null) {
+            node.voltage = downstreamV[parentId];
             Canvas.refreshRating(node);
           }
+          downstreamV[node.id] = t.spec.secondaryVoltage != null ? t.spec.secondaryVoltage : node.voltage;
         }
+
+        // 모선 연락 — 양쪽이 다 세워졌을 때만
+        for (const tie of (a && a.ties) || []) {
+          if (idByKey[tie.from] && idByKey[tie.to]) Canvas.addTie(idByKey[tie.from], idByKey[tie.to], tie.name);
+        }
+
         Canvas.autoLayout();
-        toast(`도면에서 기기 ${seq}개를 인식해 계통을 만들었습니다. 속성 패널에서 다듬으세요.`, 'ok');
+        if (a) {
+          toast(`AI 가 읽은 기기 ${placed}개로 계통을 세웠습니다. 원본 밑그림과 대조해 다듬으세요.`, 'ok');
+        } else {
+          toast(`도면 글자에서 기기 ${placed}개를 인식해 계통을 만들었습니다.`, 'ok');
+        }
       }
 
       if (res.underlay && res.underlay.dataUrl) {
-        Canvas.setUnderlay({ ...res.underlay, name: res.filename });
-        els.penChk.checked = true; // 밑그림을 깔면 바로 따라 그릴 수 있게
-        if (!tree.length) {
+        // 계통이 세워졌으면 원본을 옆에 나란히(대조용), 아니면 겹쳐 깐다(따라 그리기용)
+        Canvas.setUnderlay(
+          { ...res.underlay, name: res.filename },
+          { placement: placed ? 'beside' : 'behind' }
+        );
+        els.penChk.checked = !placed;
+        if (!placed) {
           toast('밑그림을 깔았습니다. 심볼 메뉴바에서 기호를 고른 뒤 도면 위를 클릭하세요.', 'ok');
         }
       }
@@ -435,6 +571,37 @@
       toast('도면을 만들지 못했습니다: ' + e.message, 'error');
       if (btn) { btn.disabled = false; btn.textContent = '다시 시도'; }
     }
+  }
+
+  /** 판독한 정격·보호요소를 노드에 옮긴다 */
+  function applySpec(node, t) {
+    const s = t.spec || {};
+    if (s.voltage != null) node.voltage = s.voltage;
+    if (s.trip != null) node.ratedCurrent = s.trip;
+    if (s.frame != null) node.frameCurrent = s.frame;
+    if (s.breakingCapacity != null) node.breakingCapacity = s.breakingCapacity;
+    if (s.ratedPower != null) node.ratedPower = s.ratedPower;
+    if (s.poles != null) node.poles = s.poles;
+    if (s.ctRatio) node.ctRatio = s.ctRatio;
+    if (s.cable) node.cable = s.cable;
+    if (s.tag) node.tag = s.tag;
+    if (s.zone) node.zoneName = s.zone;
+    if (s.protection && s.protection.length) node.protection = s.protection.slice();
+    if (t.label) node.sourceLabel = t.label; // 도면에 적혀 있던 원문 (대조용으로 남긴다)
+
+    if (s.capacityKva != null || s.secondaryVoltage != null || s.vectorGroup) {
+      const tr = {
+        capacity: s.capacityKva != null ? s.capacityKva : null,
+        primaryVoltage: s.voltage != null ? s.voltage : null,
+        secondaryVoltage: s.secondaryVoltage != null ? s.secondaryVoltage : null,
+        vectorGroup: s.vectorGroup || null,
+        impedance: null,
+        cooling: null,
+      };
+      node.transformer = { ...tr, label: transformerLabel(tr) };
+      if (s.capacityKva != null && node.ratedPower == null) node.ratedPower = Math.round(s.capacityKva * 0.9);
+    }
+    Canvas.refreshRating(node);
   }
 
   /** 밑그림 도구막대 표시/동기화 */

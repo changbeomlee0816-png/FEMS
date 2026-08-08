@@ -10,6 +10,7 @@ const femsStore = require('../store');
 const codes = require('../scada/codes');
 const schema = require('../scada/schema');
 const template = require('../scada/template');
+const vision = require('../../public/js/scada/vision');
 
 const router = express.Router();
 
@@ -119,6 +120,71 @@ router.post('/import', upload.single('file'), async (req, res, next) => {
     res.status(201).json({ ok: result.ok, project, report: result.report });
   } catch (e) {
     next(e);
+  }
+});
+
+// ── 전력계통도 사진 AI 판독 ────────────────────────────────────────
+/**
+ * 서버가 판독을 대신해 줄 수 있는지 알려 준다.
+ *
+ * 서버에 키(ANTHROPIC_API_KEY)가 있으면 화면은 아무것도 묻지 않고 바로 판독한다.
+ * 없으면 화면이 사용자 키를 받아 브라우저에서 직접 부른다 (정적 배포판과 같은 길).
+ */
+router.get('/ai', (req, res) => {
+  res.json({ ai: !!process.env.ANTHROPIC_API_KEY, model: vision.MODEL });
+});
+
+/**
+ * 도면 그림 → 계통 JSON.
+ * body: { images:[{dataUrl}], textDump, filename }
+ *
+ * 이미지가 base64 로 들어오므로 이 경로만 본문 한도를 크게 잡는다.
+ */
+router.post('/analyze', express.json({ limit: '24mb' }), async (req, res, next) => {
+  const key = process.env.ANTHROPIC_API_KEY;
+  if (!key) {
+    return res.status(503).json({
+      error: '서버에 ANTHROPIC_API_KEY 가 없어 AI 판독을 할 수 없습니다.',
+      needKey: true,
+    });
+  }
+
+  const { images, textDump, filename } = req.body || {};
+  if ((!Array.isArray(images) || !images.length) && !textDump) {
+    return res.status(400).json({ error: '판독할 도면 그림이 없습니다.' });
+  }
+
+  let Anthropic;
+  try {
+    Anthropic = require('@anthropic-ai/sdk');
+  } catch (e) {
+    return res.status(503).json({
+      error: 'AI 판독 모듈이 설치되어 있지 않습니다. `npm install @anthropic-ai/sdk` 후 다시 시도하세요.',
+    });
+  }
+
+  try {
+    const client = new Anthropic({ apiKey: key });
+    const request = vision.buildRequest({ images, textDump, filename });
+    let message;
+    try {
+      message = await client.messages.create(request);
+    } catch (e) {
+      // 구조화 출력을 못 받는 조합이면 스키마 없이 한 번 더 — 프롬프트만으로도 JSON 이 나온다
+      if (e && e.status === 400 && /output_config|json_schema/i.test(String(e.message))) {
+        const relaxed = Object.assign({}, request);
+        delete relaxed.output_config;
+        message = await client.messages.create(relaxed);
+      } else {
+        throw e;
+      }
+    }
+    res.json({ ok: true, analysis: vision.normalize(vision.parseResponse(message)) });
+  } catch (e) {
+    if (e && e.status === 401) return res.status(502).json({ error: '서버의 API 키가 올바르지 않습니다.' });
+    if (e && e.status === 429) return res.status(429).json({ error: '요청이 몰렸습니다. 잠시 뒤 다시 시도해 주세요.' });
+    console.error('[scada/analyze]', e);
+    res.status(502).json({ error: `도면 판독에 실패했습니다: ${String((e && e.message) || e)}` });
   }
 });
 

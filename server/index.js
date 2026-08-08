@@ -8,7 +8,10 @@ const api = require('./routes/api');
 const scada = require('./routes/scada');
 
 const app = express();
-app.use(express.json({ limit: '5mb' }));
+// 도면 판독은 이미지를 base64 로 실어 보내므로 본문이 크다.
+// 그 경로만 라우터 안에서 따로 파싱하도록 여기서는 건너뛴다.
+const parseJson = express.json({ limit: '5mb' });
+app.use((req, res, next) => (req.path === '/api/scada/analyze' ? next() : parseJson(req, res, next)));
 
 // 정적 대시보드
 app.use(express.static(path.join(__dirname, '..', 'public')));

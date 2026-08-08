@@ -409,6 +409,111 @@ async function main() {
     assert.strictEqual(byKey[lv[1].parent].x, 400);
   });
 
+  console.log('\n전력계통도 AI 판독');
+  {
+    const vision = require('../public/js/scada/vision');
+
+    await test('판독 요청에 도면 그림과 스키마가 실린다', () => {
+      const req = vision.buildRequest({
+        images: [{ dataUrl: 'data:image/jpeg;base64,AAAA' }, { dataUrl: 'data:image/png;base64,BBBB' }],
+        filename: '수변전_계통도.pdf',
+      });
+      assert.strictEqual(req.model, 'claude-opus-5');
+      // 이 모델들은 temperature/top_p 를 받지 않는다 (400) — 넣지 않았는지 확인
+      assert.ok(!('temperature' in req) && !('top_p' in req) && !('top_k' in req));
+      assert.deepStrictEqual(req.thinking, { type: 'adaptive' });
+      const imgs = req.messages[0].content.filter((c) => c.type === 'image');
+      assert.strictEqual(imgs.length, 2);
+      assert.strictEqual(imgs[0].source.media_type, 'image/jpeg');
+      assert.strictEqual(imgs[1].source.data, 'BBBB');
+      assert.strictEqual(req.output_config.format.type, 'json_schema');
+      // 스키마의 기호 목록은 실제 심볼 카탈로그와 어긋나면 안 된다
+      const sandbox = { window: {} };
+      new Function('window', fs.readFileSync(path.join(__dirname, '../public/js/scada/symbols.js'), 'utf8'))(sandbox.window);
+      const kinds = sandbox.window.ScadaSymbols.kinds;
+      const unknown = vision.SYMBOL_IDS.filter((id) => !kinds.includes(id));
+      assert.strictEqual(unknown.length, 0, `그릴 수 없는 기호: ${unknown.join(', ')}`);
+    });
+
+    await test('그림이 없는 벡터 PDF 는 글자와 좌표로 판독한다', () => {
+      const req = vision.buildRequest({ images: [], textDump: '(100,40) KEPCO 22.9KV\n(100,90) VCB 630A' });
+      const parts = req.messages[0].content;
+      assert.strictEqual(parts.filter((c) => c.type === 'image').length, 0);
+      assert.strictEqual(parts.length, 1);
+      assert.ok(parts[0].text.includes('KEPCO 22.9KV'), '글자가 프롬프트에 실리지 않았다');
+      assert.ok(parts[0].text.includes('x=가로'), '좌표 읽는 법을 알려주지 않았다');
+    });
+
+    await test('판독 결과를 도면에 세울 수 있는 트리로 정규화한다', () => {
+      const a = vision.normalize({
+        drawingTitle: '○○공장 수변전 단선결선도',
+        confidence: 'high',
+        notes: '',
+        nodes: [
+          { id: 'n2', parent: 'n1', symbol: 'VCB', name: 'VCB-1', labelText: '25.8kV 630A', voltage: 25.8, ratedCurrent: 630, breakingCapacity: 25, protection: ['50', '51n'] },
+          { id: 'n1', parent: null, symbol: 'utility', name: '한전 수전', labelText: '22.9kV-Y', voltage: 22.9 },
+          { id: 'n3', parent: 'n2', symbol: 'TR', name: '#1 주변압기', labelText: '500kVA', capacityKva: 500, secondaryVoltage: 0.38, vectorGroup: 'Dyn11' },
+        ],
+        ties: [],
+      });
+      // 부모가 반드시 먼저 나와야 그대로 세울 수 있다
+      const seen = new Set();
+      for (const it of a.items) {
+        if (it.parent) assert.ok(seen.has(it.parent), `${it.key} 의 부모가 뒤에 있다`);
+        seen.add(it.key);
+      }
+      assert.strictEqual(a.roots, 1);
+      assert.strictEqual(a.items[1].symbol, 'vcb');       // 대문자 표기도 받는다
+      assert.strictEqual(a.items[2].symbol, 'transformer'); // TR 약어도 받는다
+      assert.deepStrictEqual(a.items[1].spec.protection, ['50', '51N']);
+      assert.strictEqual(a.items[2].spec.capacityKva, 500);
+      assert.strictEqual(a.title, '○○공장 수변전 단선결선도');
+    });
+
+    await test('잘못 읽은 계통도 세울 수 있게 고친다', () => {
+      const a = vision.normalize({
+        confidence: 'low',
+        nodes: [
+          { id: 'a', parent: null, symbol: 'utility', name: '수전' },
+          { id: 'b', parent: '없는놈', symbol: 'mccb', name: '떠 있는 차단기' },
+          { id: 'c', parent: 'd', symbol: 'mccb', name: '순환1' },
+          { id: 'd', parent: 'c', symbol: 'mccb', name: '순환2' },
+          { id: 'a', parent: null, symbol: 'utility', name: '중복' },
+          { id: 'e', parent: 'a', symbol: '외계기호', name: '모르는 것' },
+        ],
+        ties: [{ from: 'a', to: 'b' }, { from: 'a', to: '없는놈' }, { from: 'a', to: 'a' }],
+      });
+      assert.strictEqual(a.items.length, 5, '중복 id 는 한 번만');
+      assert.strictEqual(a.items.filter((i) => i.key === 'b')[0].parent, null);
+      assert.strictEqual(a.items.filter((i) => i.symbol === 'load')[0].name, '모르는 것');
+      assert.strictEqual(a.ties.length, 1, '양쪽이 다 있는 연락만 남는다');
+      assert.ok(a.warnings.length >= 3);
+      // 순환이 끊겨 부모를 계속 따라가도 끝이 나야 한다
+      const byKey = Object.fromEntries(a.items.map((i) => [i.key, i]));
+      for (const it of a.items) {
+        let cur = it;
+        let hops = 0;
+        while (cur.parent && hops++ < 20) cur = byKey[cur.parent];
+        assert.ok(hops < 20, `${it.key} 에서 상위가 끝나지 않는다`);
+      }
+    });
+
+    await test('기기를 하나도 못 읽으면 분명히 실패한다', () => {
+      assert.throws(() => vision.normalize({ nodes: [] }), /기기를 찾지 못했습니다/);
+      assert.throws(() => vision.normalize(null), /기기를 찾지 못했습니다/);
+    });
+
+    await test('거절·비정상 응답을 그냥 넘기지 않는다', () => {
+      assert.throws(() => vision.parseResponse({ stop_reason: 'refusal', content: [] }), /안전 정책/);
+      assert.throws(() => vision.parseResponse({ content: [{ type: 'text', text: '음… 잘 모르겠습니다' }] }), /JSON/);
+      // 설명이 앞뒤로 붙어 나와도 JSON 만 골라낸다
+      const out = vision.parseResponse({
+        content: [{ type: 'thinking', thinking: '…' }, { type: 'text', text: '결과입니다:\n{"nodes":[]}\n이상입니다' }],
+      });
+      assert.deepStrictEqual(out, { nodes: [] });
+    });
+  }
+
   console.log('\n한전 메인 추가');
   await test('도면에서 한전메인을 추가할 수 있다', () => {
     const d = JSON.parse(JSON.stringify(good.diagram));

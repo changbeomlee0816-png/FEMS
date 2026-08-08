@@ -842,12 +842,21 @@ window.ScadaCanvas = (function () {
     const b = nodeBounds();
     // 표제란·범례가 아래에 붙으므로 그 높이를 함께 잡는다
     const frameH = showFrame ? 62 + Math.max(TB.h, 190) : 80;
-    return {
+    const box = {
       x1: b.x1 - 70,
       y1: b.y1 - 165, // 수전 심볼 자리
       x2: b.x2 + 70,
       y2: b.y2 + frameH,
     };
+    // 원본 도면을 깔았으면 그것까지 한 화면에 들어와야 대조가 된다
+    const u = diagram.underlay;
+    if (u && u.visible !== false) {
+      box.x1 = Math.min(box.x1, u.x - 40);
+      box.y1 = Math.min(box.y1, u.y - 40);
+      box.x2 = Math.max(box.x2, u.x + u.w + 40);
+      box.y2 = Math.max(box.y2, u.y + u.h + 40);
+    }
+    return box;
   }
 
   function fit() {
@@ -1060,11 +1069,13 @@ window.ScadaCanvas = (function () {
 
   // ── 도면 밑그림 (트레이싱) ─────────────────────────────────────
   /**
-   * 가져온 전기도면을 캔버스에 깔아 준다.
-   * 스캔 도면은 글자를 꺼낼 수 없으므로, 이 밑그림 위를 심볼 메뉴바로
-   * 따라 그리는 것이 가장 빠르고 정확하다.
+   * 가져온 전기도면을 캔버스에 앉힌다. 놓는 자리는 두 가지다.
+   *
+   *   behind (기본) — 계통 위에 겹쳐 깐다. 그 위를 심볼로 따라 그릴 때 쓴다.
+   *   beside        — 계통 오른쪽에 나란히 둔다. AI 가 이미 계통을 세워 놓은
+   *                   경우로, 원본과 판독 결과를 **눈으로 대조**하는 것이 목적이다.
    */
-  function setUnderlay(u) {
+  function setUnderlay(u, opts) {
     if (!diagram) return null;
     if (!u) {
       delete diagram.underlay;
@@ -1072,16 +1083,18 @@ window.ScadaCanvas = (function () {
       fit();
       return null;
     }
+    const beside = !!(opts && opts.placement === 'beside');
     // 도면 폭에 맞춰 적당한 크기로 앉힌다
     const targetW = Math.max(1400, diagram.layout.canvasW || 1400);
     const scaleTo = targetW / (u.w || targetW);
+    const b = nodeBounds();
     diagram.underlay = {
       dataUrl: u.dataUrl,
-      x: 0,
-      y: 40,
+      x: beside ? Math.round(b.x2 + 160) : 0,
+      y: beside ? Math.round(b.y1) : 40,
       w: Math.round((u.w || targetW) * scaleTo),
       h: Math.round((u.h || 900) * scaleTo),
-      opacity: 0.45,
+      opacity: beside ? 0.9 : 0.45, // 대조용이면 또렷하게, 따라 그리기용이면 흐리게
       visible: true,
       name: u.name || '',
     };

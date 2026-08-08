@@ -2,18 +2,15 @@
 'use strict';
 
 /**
- * 전기도면(이미지 · PDF) 가져오기.
+ * 전기도면(이미지 · PDF) **읽기**.
  *
- * 두 가지 길을 함께 제공한다. 실제 현장 도면이 둘 중 하나이기 때문이다.
+ * 이 파일은 파일에서 재료를 꺼내는 데까지만 한다.
+ *   - 페이지 그림(pages) — AI 판독에 보낼 이미지이자 캔버스 밑그림
+ *   - 글자와 좌표(tokens) — 벡터 PDF 일 때만 나온다
  *
- *  ① 벡터 PDF (CAD 에서 바로 뽑은 것)
- *     → 글자와 좌표를 그대로 꺼낼 수 있다. `VCB 24kV 3P 630A`, `TRANSFORMER-2 300kVA`,
- *       `MCCB 3P 225/200` 같은 표기를 읽어 **기기와 정격까지 자동 인식**하고,
- *       세로 위치(y)로 계통 층을 잡아 단선결선도를 만들어 낸다.
- *
- *  ② 스캔 이미지 · 사진 · 래스터 PDF (도면을 찍거나 스캔한 것)
- *     → 글자가 그림 안에 있어 꺼낼 수 없다. 대신 그 그림을 **도면 밑그림(underlay)**
- *       으로 캔버스에 깔아 주고, 심볼 메뉴바로 그 위를 따라 그리게 한다(트레이싱).
+ * 계통을 실제로 **읽어 내는 일은 vision.js(AI 판독)** 가 맡는다.
+ * 여기 남은 규칙 기반 인식(detect · buildTree)은 AI 를 쓸 수 없을 때
+ * (키가 없거나 통신이 막혔을 때) 벡터 PDF 에서만 동작하는 보조 수단이다.
  *
  * 외부 라이브러리를 쓰지 않는다 — PDF 는 직접 읽는다(브라우저 CSP 제약).
  */
@@ -112,14 +109,17 @@ window.ScadaDrawingImport = (function () {
       collectText(text, page, tokens);
     }
 
-    // 밑그림 — 가장 큰 이미지를 쓴다 (스캔 도면은 페이지 전체가 한 장이다)
-    let underlay = null;
+    // 페이지 그림 — 스캔 도면은 페이지 하나가 통째로 이미지 한 장이다.
+    // 여러 장짜리 도면은 한 계통이 장을 넘겨 이어지므로 큰 것들을 모두 넘긴다.
     images.sort((a, b) => b.w * b.h - a.w * a.h);
-    if (images.length && images[0].mime === 'image/jpeg') {
-      underlay = { dataUrl: toDataUrl(images[0].data, 'image/jpeg'), w: images[0].w, h: images[0].h };
-    }
+    const drawable = images.filter((im) => im.mime === 'image/jpeg');
+    const biggest = drawable.length ? drawable[0].w * drawable[0].h : 0;
+    const pages = drawable
+      .filter((im) => im.w * im.h >= biggest * 0.4) // 로고·표제란 조각은 뺀다
+      .slice(0, 4)
+      .map((im) => ({ dataUrl: toDataUrl(im.data, 'image/jpeg'), w: im.w, h: im.h }));
 
-    return { kind: 'pdf', tokens, underlay, page, imageCount: images.length };
+    return { kind: 'pdf', tokens, underlay: pages[0] || null, pages, page, imageCount: images.length };
   }
 
   /** 콘텐츠 스트림에서 글자와 위치를 뽑는다 (Tm/Td/TD/T* + Tj/TJ/'/") */
@@ -180,11 +180,10 @@ window.ScadaDrawingImport = (function () {
       fr.onerror = () => reject(new Error('이미지를 읽지 못했습니다.'));
       fr.onload = () => {
         const img = new Image();
-        img.onload = () => resolve({
-          kind: 'image',
-          tokens: [],
-          underlay: { dataUrl: String(fr.result), w: img.naturalWidth, h: img.naturalHeight },
-        });
+        img.onload = () => {
+          const underlay = { dataUrl: String(fr.result), w: img.naturalWidth, h: img.naturalHeight };
+          resolve({ kind: 'image', tokens: [], underlay, pages: [underlay] });
+        };
         img.onerror = () => reject(new Error('이미지 형식을 인식하지 못했습니다.'));
         img.src = String(fr.result);
       };

@@ -56,15 +56,17 @@
           <!-- 전기도면(이미지·PDF) 가져오기 -->
           <div class="sc-newdraw sc-import">
             <div class="sc-newdraw-head">
-              <strong>전기도면(그림·PDF) 가져오기</strong>
+              <strong>전력계통도 사진 넣으면 AI 가 읽어 드립니다</strong>
               <span class="sc-muted">
-                CAD 로 뽑은 <b>벡터 PDF</b> 는 글자를 읽어 기기·정격까지 자동 인식합니다.
-                <b>스캔·사진</b> 은 도면을 밑그림으로 깔아 드리니 심볼 메뉴바로 따라 그리면 됩니다.
+                도면을 <b>찍은 사진·스캔·PDF</b> 를 그대로 올리세요. AI 가 기호와 결선을 판독해
+                수전점부터 말단 부하까지 <b>SCADA 화면을 바로 만들어 냅니다.</b>
+                정격(kV·AF/AT·kVA)과 보호요소(50/51·87T)도 함께 읽습니다.
+                원본은 밑그림으로 깔려서 판독 결과를 바로 대조·수정할 수 있습니다.
               </span>
             </div>
             <div class="sc-newdraw-form">
-              <button class="sc-btn sc-btn-primary" id="importDrawingBtn">도면 파일 선택</button>
-              <span class="sc-muted" id="importHint">.pdf · .png · .jpg</span>
+              <button class="sc-btn sc-btn-primary" id="importDrawingBtn">도면 사진 선택</button>
+              <span class="sc-muted" id="importHint">.jpg · .png · .pdf</span>
               <input type="file" id="drawingInput" accept=".pdf,.png,.jpg,.jpeg,.webp" hidden />
             </div>
             <div class="sc-import-result" id="importResult" hidden></div>
@@ -338,6 +340,7 @@
     <script src="/js/scada/alarms.js"></script>
     <script src="/js/scada/glossary.js"></script>
     <script src="/js/scada/drawing-import.js"></script>
+    <script src="/js/scada/vision.js"></script>
     <script src="/js/scada/canvas.js"></script>
     <script src="/js/scada/app.js"></script>
   </body>
